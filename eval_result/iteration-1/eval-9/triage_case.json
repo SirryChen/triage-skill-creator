@@ -1,0 +1,14 @@
+{
+  "outpatient_number": 67520238,
+  "chief_complaint": "我的体温突然下降了。",
+  "preliminary_diagnosis": "",
+  "present_illness_history": "健康咨询描述：我以前提问一直都保持在37度，今天突然下降了，一直都是36.4，会是排卵期的原因吗，还是便秘的原因",
+  "past_history": "不详",
+  "drug_allergy_history": "不详",
+  "department": "内科",
+  "age": "15",
+  "gender": "女",
+  "name": "患者",
+  "visit_date": "2017-03-20",
+  "patient_id": "67520238.0"
+}

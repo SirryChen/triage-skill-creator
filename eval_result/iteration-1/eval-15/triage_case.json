@@ -1,0 +1,14 @@
+{
+  "outpatient_number": 67568923,
+  "chief_complaint": "耳鸣四年求救",
+  "preliminary_diagnosis": "",
+  "present_illness_history": "健康咨询描述：从七八岁时就感觉自己听力比别人差一点，到了2014年时一场感冒后感觉有耳鸣的症状，而且本人长期鼻炎。求问医生是什么情况，治疗需要多少钱",
+  "past_history": "不详",
+  "drug_allergy_history": "不详",
+  "department": "耳鼻喉科",
+  "age": "20",
+  "gender": "男",
+  "name": "患者",
+  "visit_date": "2017-03-25",
+  "patient_id": "67568923.0"
+}

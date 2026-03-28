@@ -1,0 +1,14 @@
+{
+  "outpatient_number": 6760101,
+  "chief_complaint": "刚开刀不久,吃什么最好",
+  "preliminary_diagnosis": "",
+  "present_illness_history": "健康咨询描述：胃!刚开刀不久,吃什么最好!",
+  "past_history": "不详",
+  "drug_allergy_history": "不详",
+  "department": "营养科",
+  "age": "70",
+  "gender": "男",
+  "name": "患者",
+  "visit_date": "2009-01-24",
+  "patient_id": "6760101.0"
+}

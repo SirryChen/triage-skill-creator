@@ -1,0 +1,14 @@
+{
+  "outpatient_number": 67500887,
+  "chief_complaint": "4岁宝宝晚上咳嗽有痰，咳的声音很粗",
+  "preliminary_diagnosis": "",
+  "present_illness_history": "健康咨询描述：晚上咳嗽的厉害，，咳嗽之前是发烧，现在烧退了，现在就是3天了不拉大便",
+  "past_history": "不详",
+  "drug_allergy_history": "不详",
+  "department": "外科",
+  "age": "4",
+  "gender": "女",
+  "name": "患者",
+  "visit_date": "2017-03-18",
+  "patient_id": "67500887.0"
+}

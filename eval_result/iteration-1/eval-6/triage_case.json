@@ -1,0 +1,14 @@
+{
+  "outpatient_number": 80080461,
+  "chief_complaint": "打完疫苗后一周不到又被狗咬了",
+  "preliminary_diagnosis": "",
+  "present_illness_history": "健康咨询描述：我周一刚打完最后一针狂犬疫苗，现在又被咬了，被咬到眉毛那里，我需要再打针吗",
+  "past_history": "不详",
+  "drug_allergy_history": "不详",
+  "department": "感染科",
+  "age": "18",
+  "gender": "男",
+  "name": "患者",
+  "visit_date": "2020/4/8",
+  "patient_id": "80080461.0"
+}

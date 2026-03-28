@@ -1,0 +1,14 @@
+{
+  "outpatient_number": 67615818,
+  "chief_complaint": "烫头后头疼，鼻子痛，是鼻炎吗？",
+  "preliminary_diagnosis": "",
+  "present_illness_history": "健康咨询描述：我烫头后头疼，鼻子到头都不舒服，是不是鼻炎，吃了感冒通，鼻炎片，还不行，想问专家是不是烫头过敏，",
+  "past_history": "不详",
+  "drug_allergy_history": "不详",
+  "department": "耳鼻喉科",
+  "age": "20",
+  "gender": "男",
+  "name": "患者",
+  "visit_date": "2017-03-29",
+  "patient_id": "67615818.0"
+}

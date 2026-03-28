@@ -1,0 +1,14 @@
+{
+  "outpatient_number": 67428321,
+  "chief_complaint": "我现在怎么办啊医生。白天还好。晚上就发烧",
+  "preliminary_diagnosis": "",
+  "present_illness_history": "健康咨询描述：发烧啊。白天不发烧。就等晚上身上热的要死。身上痛╯﹏╰。是不是得了癌症啊，我不想啊，医生快点解答",
+  "past_history": "不详",
+  "drug_allergy_history": "不详",
+  "department": "肿瘤科",
+  "age": "16",
+  "gender": "男",
+  "name": "患者",
+  "visit_date": "2017-03-11",
+  "patient_id": "67428321.0"
+}

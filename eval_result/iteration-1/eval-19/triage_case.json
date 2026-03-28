@@ -1,0 +1,14 @@
+{
+  "outpatient_number": 80109793,
+  "chief_complaint": "上火引起的慢性牙髓炎",
+  "preliminary_diagnosis": "",
+  "present_illness_history": "健康咨询描述：不是坏牙引起的慢性牙髓炎该怎么治。遇冷遇热都疼，在诊所里在来，医生说没有坏牙。可能是上火引起的慢性牙髓炎怎么治。",
+  "past_history": "不详",
+  "drug_allergy_history": "不详",
+  "department": "口腔科",
+  "age": "22",
+  "gender": "男",
+  "name": "患者",
+  "visit_date": "2020/4/11",
+  "patient_id": "80109793.0"
+}

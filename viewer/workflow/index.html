@@ -1,0 +1,2572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>导诊评测工作流</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-a: #e6f3ef;
+      --bg-b: #e2ebfb;
+      --bg-c: #f3e9f5;
+      --glass: rgba(255, 255, 255, 0.42);
+      --glass-border: rgba(255, 255, 255, 0.72);
+      --glass-strong: rgba(255, 255, 255, 0.58);
+      --txt: #1a2332;
+      --muted: #5a6578;
+      --accent: #2d6a8f;
+      --accent-2: #5b8fb9;
+      --accent-soft: rgba(45, 106, 143, 0.12);
+      --success: #2d7a4e;
+      --err: #b83232;
+      --radius: 18px;
+      --shadow: 0 12px 40px rgba(26, 35, 50, 0.08);
+
+      /* Flowchart Mermaid-style colors */
+      --flow-node-bg: #f7f9fc;
+      --flow-node-border: #5d6b7b;
+      --flow-node-active-bg: #e9f2f8;
+      --flow-node-active-border: #2f6f8c;
+      --flow-node-done-bg: #e9f4ef;
+      --flow-node-done-border: #e3bf73;
+      --flow-edge: rgba(74, 88, 104, 0.52);
+      --flow-edge-done: #2f6f8c;
+      --flow-iter1: #2f6f8c;
+      --flow-iter2: #5f6f86;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      color: var(--txt);
+      background:
+        radial-gradient(ellipse 120% 80% at 10% 0%, rgba(180, 220, 200, 0.45) 0%, transparent 55%),
+        radial-gradient(ellipse 100% 60% at 100% 20%, rgba(190, 200, 240, 0.5) 0%, transparent 50%),
+        linear-gradient(165deg, var(--bg-a) 0%, var(--bg-b) 42%, var(--bg-c) 100%);
+      background-attachment: fixed;
+    }
+
+    /* ====== THREE-COLUMN LAYOUT ====== */
+    .app-shell {
+      display: grid;
+      grid-template-columns: 258px minmax(0, 1fr);
+      grid-template-rows: auto;
+      grid-template-areas: "leftnav main";
+      min-height: 100vh;
+      gap: 0;
+    }
+    .app-shell.openclaw {
+      grid-template-columns: 258px minmax(0, 1fr) 320px;
+      grid-template-areas: "leftnav main chatdock";
+    }
+
+    /* Left nav column */
+    .left-nav-col {
+      grid-area: leftnav;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 1rem 0.7rem 1.2rem 0.75rem;
+      border-right: 1px solid rgba(255,255,255,0.5);
+      background: linear-gradient(180deg, rgba(245, 249, 253, 0.82), rgba(240, 246, 251, 0.72));
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      z-index: 30;
+    }
+
+    /* Main content column */
+    .page {
+      grid-area: main;
+      padding: 1.25rem 1.5rem 4rem;
+      min-width: 0;
+      overflow-x: hidden;
+    }
+
+    /* Chat dock column */
+    .chat-dock { display: none; }
+    .app-shell.openclaw .chat-dock {
+      display: flex;
+      grid-area: chatdock;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      border-left: 1px solid rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.28);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      overflow: hidden;
+      z-index: 20;
+    }
+    .chat-head {
+      padding: 0.9rem 0.95rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+      font-size: 0.82rem;
+      font-weight: 650;
+      color: #2a3540;
+      background: rgba(255, 255, 255, 0.4);
+      flex-shrink: 0;
+    }
+    .chat-status {
+      margin-top: 0.3rem;
+      font-size: 0.74rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .chat-body {
+      flex: 1;
+      overflow: auto;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .chat-msg {
+      padding: 0.6rem 0.7rem;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .chat-msg.user {
+      align-self: flex-end;
+      background: rgba(45, 106, 143, 0.18);
+      border: 1px solid rgba(45, 106, 143, 0.22);
+    }
+    .chat-msg.assistant {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.82);
+    }
+    .chat-msg-content.clamped {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+      overflow: hidden;
+    }
+    .chat-expand-btn {
+      margin-top: 0.35rem;
+      border: 0;
+      background: transparent;
+      color: #2d6a8f;
+      font-size: 0.75rem;
+      cursor: pointer;
+      padding: 0;
+    }
+    .chat-expand-btn:hover { text-decoration: underline; }
+    .chat-foot {
+      border-top: 1px solid rgba(255, 255, 255, 0.6);
+      padding: 0.65rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.45rem;
+      background: rgba(255, 255, 255, 0.42);
+    }
+    .chat-foot textarea {
+      min-height: 68px;
+      max-height: 120px;
+      resize: vertical;
+      font-family: inherit;
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+    .chat-foot button { align-self: end; white-space: nowrap; }
+    .hero {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      padding: 1.25rem 1rem;
+    }
+    .hero h1 {
+      font-size: clamp(1.35rem, 4vw, 1.65rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.5rem;
+      background: linear-gradient(120deg, #1a3a4a 0%, var(--accent) 50%, #4a6fa5 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero p {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .hero code { font-size: 0.82em; padding: 0.1em 0.35em; border-radius: 6px; background: var(--accent-soft); color: var(--accent); }
+
+    /* ====== LEFT NAV: Premium SVG Flowchart ====== */
+    .left-nav-title {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #4b5f74;
+      margin: 0 0 0.6rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.45);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .left-nav-title::before {
+      content: "";
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2f6f8c, #5f6f86);
+    }
+
+    /* The SVG canvas takes all the space */
+    #flowSvgCanvas {
+      display: block;
+      width: 100%;
+      overflow: visible;
+      cursor: default;
+    }
+
+    /* Invisible hit-area buttons overlaid on SVG nodes */
+    .flow-hit {
+      position: absolute;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      cursor: pointer;
+      border-radius: 0;
+      outline: none;
+    }
+    .flow-hit:focus-visible {
+      outline: 2px solid #2d6a8f;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+    .flow-hit:disabled { cursor: not-allowed; }
+
+    /* Container that holds svg + hit buttons */
+    .flow-canvas-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .left-nav-foot {
+      margin-top: auto;
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(255,255,255,0.45);
+      font-size: 0.7rem;
+      color: #556779;
+      line-height: 1.55;
+    }
+
+    /* Hide old left-flow and page-layout */
+    .page-layout { display: block; }
+    .left-flow { display: none !important; }
+    .progress-shell { display: none !important; }
+
+    /* Progress */
+    .progress-shell {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 0.75rem 0 1rem;
+      margin: 0 -0.5rem 1.25rem;
+    }
+    .progress-glass {
+      background: var(--glass);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      position: relative;
+      padding: 1rem 1rem 1.1rem;
+    }
+    .progress-bar-bg {
+      height: 6px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.5);
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 20%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .progress-steps-wrap {
+      position: relative;
+    }
+    .progress-connectors {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .progress-steps {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      gap: 0.35rem;
+    }
+    .p-step {
+      flex: 1;
+      text-align: center;
+      cursor: pointer;
+      padding: 0.35rem 0.2rem;
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+    .p-step:hover { background: rgba(255, 255, 255, 0.35); }
+    .p-step .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      background: rgba(255, 255, 255, 0.65);
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      color: var(--muted);
+      transition: all 0.25s;
+    }
+    .p-step.active .num {
+      background: linear-gradient(145deg, var(--accent), var(--accent-2));
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 4px 14px rgba(45, 106, 143, 0.35);
+    }
+    .p-step.done .num {
+      background: var(--success);
+      color: #fff;
+      border-color: transparent;
+    }
+    .p-step .label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+    .p-step.active .label { color: var(--accent); }
+
+    /* Panels */
+    .panels { position: relative; min-height: 320px; }
+    .panel {
+      display: none;
+      animation: fadeIn 0.35s ease;
+    }
+    .panel.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .panel { animation: none; }
+      .progress-bar-fill { transition: none; }
+    }
+
+    .card {
+      background: var(--glass-strong);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.15rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .card h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin: 0 0 0.85rem;
+      padding-bottom: 0.55rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.55);
+      color: #243244;
+    }
+    .hint {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin: 0 0 0.75rem;
+      line-height: 1.5;
+    }
+    label.field {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 0.35rem;
+    }
+    input[type="text"], input[type="number"], textarea {
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-family: inherit;
+      background: rgba(255, 255, 255, 0.65);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: rgba(45, 106, 143, 0.45);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    textarea { min-height: 200px; font-family: ui-monospace, "Cascadia Code", monospace; font-size: 0.82rem; line-height: 1.45; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+      gap: 0.45rem;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 0.35rem;
+      margin: 0 -0.35rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.35);
+    }
+    .grid label {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+      padding: 0.25rem 0.15rem;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      align-items: center;
+      margin-top: 0.55rem;
+    }
+    button {
+      padding: 0.5rem 1.1rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.75);
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-family: inherit;
+      font-weight: 500;
+      color: var(--txt);
+      transition: transform 0.15s, box-shadow 0.2s;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(26, 35, 50, 0.1);
+    }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), #3d7fa8);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 4px 18px rgba(45, 106, 143, 0.28);
+    }
+    button.primary:hover:not(:disabled) {
+      box-shadow: 0 6px 22px rgba(45, 106, 143, 0.35);
+    }
+    button.ghost { background: transparent; border-color: rgba(45, 106, 143, 0.25); color: var(--accent); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+    .msg { font-size: 0.8rem; margin-top: 0.65rem; white-space: pre-wrap; line-height: 1.45; }
+    .msg.ok { color: var(--success); }
+    .msg.err { color: var(--err); }
+    .code {
+      background: rgba(255, 255, 255, 0.55);
+      padding: 0.65rem 0.85rem;
+      border-radius: 12px;
+      font-size: 0.76rem;
+      overflow-x: auto;
+      border: 1px solid rgba(255, 255, 255, 0.7);
+    }
+    ul.compact { margin: 0.35rem 0 0.75rem; padding-left: 1.15rem; font-size: 0.84rem; color: var(--muted); line-height: 1.55; }
+    .check-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      font-size: 0.86rem;
+      margin-top: 0.65rem;
+    }
+    .check-line input { margin-top: 0.2rem; }
+    .nav-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.45);
+    }
+    .nav-row .right { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .step-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      opacity: 0.85;
+    }
+    .skill-preview {
+      margin: 0;
+      padding: 0.75rem 0.85rem;
+      max-height: 280px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.85);
+      border-radius: 12px;
+      color: #243244;
+    }
+    .skill-preview.empty { color: var(--muted); font-style: italic; }
+    #rubricRoot { margin-top: 0.25rem; }
+    .rubric-block { margin-bottom: 1.1rem; }
+    .rubric-block h3 {
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin: 0 0 0.35rem;
+      color: #2a3540;
+    }
+    .rubric-block .subhint { font-size: 0.74rem; color: var(--muted); margin: 0 0 0.5rem; line-height: 1.45; }
+    .rubric-table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      background: rgba(255, 255, 255, 0.42);
+    }
+    table.rubric-table { width: 100%; border-collapse: collapse; font-size: 0.81rem; }
+    table.rubric-table th {
+      text-align: left;
+      padding: 0.45rem 0.55rem;
+      background: rgba(45, 106, 143, 0.09);
+      color: #3d4d5c;
+      font-weight: 600;
+    }
+    table.rubric-table td {
+      padding: 0.4rem 0.55rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.55);
+      vertical-align: top;
+    }
+    table.rubric-table td.score-cell {
+      width: 2.25rem;
+      font-weight: 700;
+      color: var(--accent);
+      padding-top: 0.65rem;
+    }
+    textarea.rubric-ta {
+      min-height: 2.5rem;
+      resize: vertical;
+      font-family: inherit;
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+    textarea.rubric-dept { min-height: 100px; }
+    textarea.rubric-eff { min-height: 72px; }
+    textarea.rubric-custom { min-height: 100px; }
+    .chat-remind {
+      margin-top: 1.25rem;
+      padding: 1rem 1.1rem 1.05rem;
+      border-radius: 14px;
+      border: 2px solid rgba(180, 95, 30, 0.55);
+      background: linear-gradient(135deg, rgba(255, 248, 235, 0.95), rgba(255, 236, 210, 0.88));
+      box-shadow: 0 6px 24px rgba(120, 70, 20, 0.12);
+    }
+    .chat-remind-title {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #8a4518;
+      margin-bottom: 0.45rem;
+    }
+    .chat-remind-line {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1.45;
+      color: #3a2410;
+    }
+    .review-shell {
+      margin-top: 0.75rem;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      background: rgba(255, 255, 255, 0.35);
+      min-height: 320px;
+      padding: 0.75rem;
+    }
+    .rv-card {
+      background: rgba(255, 255, 255, 0.68);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 12px;
+      padding: 0.7rem 0.8rem;
+      margin-bottom: 0.65rem;
+    }
+    .rv-overview {
+      background: linear-gradient(145deg, rgba(241, 248, 255, 0.9), rgba(255, 255, 255, 0.82));
+      border: 1px solid rgba(176, 210, 235, 0.75);
+    }
+    .rv-case {
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(215, 228, 241, 0.95);
+      border-radius: 14px;
+      padding: 0.75rem 0.8rem;
+      margin: 0.72rem 0;
+      box-shadow: 0 4px 14px rgba(34, 56, 78, 0.07);
+    }
+    .rv-case + .rv-case {
+      border-top: 3px solid rgba(185, 205, 224, 0.7);
+    }
+    .rv-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(118, 138, 157, 0.38), transparent);
+      margin: 0.6rem 0;
+    }
+    .rv-mini-title {
+      font-size: 0.75rem;
+      color: #607187;
+      font-weight: 700;
+      margin: 0.15rem 0 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .rv-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      align-items: center;
+      margin-bottom: 0.45rem;
+      font-size: 0.84rem;
+      font-weight: 650;
+      color: #223242;
+    }
+    .rv-badge {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      border: 1px solid rgba(0, 0, 0, 0.07);
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .rv-badge.skill { color: #155a8a; background: rgba(193, 228, 255, 0.8); }
+    .rv-badge.base { color: #6f4b18; background: rgba(255, 228, 187, 0.85); }
+    .rv-badge.ok { color: #1d6b3d; background: rgba(211, 245, 223, 0.8); }
+    .rv-badge.err { color: #9c2e2e; background: rgba(255, 214, 214, 0.82); }
+    .rv-pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, "Cascadia Code", monospace;
+      font-size: 0.76rem;
+      line-height: 1.45;
+      color: #2a3848;
+    }
+    .rv-assert-list { margin: 0.35rem 0 0; padding-left: 1rem; }
+    .rv-assert-list li { margin: 0.28rem 0; font-size: 0.79rem; color: #3a495a; }
+    .rv-assert-ev { color: #6a7484; font-size: 0.74rem; margin-top: 0.12rem; }
+    .rv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 0.55rem;
+    }
+    .rv-stat {
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-radius: 10px;
+      padding: 0.48rem 0.55rem;
+    }
+    .rv-stat .k { font-size: 0.72rem; color: #5e6a7d; }
+    .rv-stat .v { font-size: 0.92rem; font-weight: 700; color: #273647; margin-top: 0.1rem; }
+    .rv-chat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.32rem;
+      max-height: 340px;
+      overflow: auto;
+      padding-right: 0.1rem;
+    }
+    .rv-bubble {
+      font-size: 0.78rem;
+      line-height: 1.45;
+      padding: 0.45rem 0.6rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.78);
+      color: #273648;
+    }
+    .rv-bubble.nurse { background: rgba(221, 242, 255, 0.72); }
+    .rv-bubble.patient { background: rgba(255, 240, 222, 0.74); }
+    .rv-bubble .role { font-size: 0.72rem; color: #516173; margin-bottom: 0.18rem; font-weight: 700; }
+    .rv-table-wrap { overflow-x: auto; }
+    .rv-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.76rem;
+    }
+    .rv-table th, .rv-table td {
+      border-top: 1px solid rgba(255, 255, 255, 0.75);
+      padding: 0.38rem 0.4rem;
+      text-align: left;
+      color: #314254;
+      white-space: nowrap;
+    }
+    .rv-table th { color: #5b6678; font-weight: 700; }
+    .rv-empty { color: #5e6a7d; font-size: 0.82rem; padding: 0.5rem; }
+    .rv-sec-title { margin: 0.1rem 0 0.45rem; font-size: 0.82rem; color: #37485b; font-weight: 700; }
+    .rv-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+    .rv-col { display: grid; gap: 0.5rem; }
+    .rv-detail {
+      border: 1px dashed rgba(150, 170, 190, 0.65);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.72);
+      padding: 0.35rem 0.5rem;
+    }
+    .rv-detail > summary {
+      cursor: pointer;
+      font-size: 0.76rem;
+      color: #42566e;
+      font-weight: 650;
+      list-style: none;
+      outline: none;
+    }
+    .rv-detail > summary::-webkit-details-marker { display: none; }
+    .rv-detail[open] > summary { margin-bottom: 0.35rem; }
+    .rv-evidence p { margin: 0 0 0.35rem; font-size: 0.78rem; color: #3a4c5f; line-height: 1.45; }
+    @media (max-width: 760px) { .rv-row-2 { grid-template-columns: 1fr; } }
+
+    /* ====== RESPONSIVE ====== */
+    @media (max-width: 900px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+        grid-template-areas: "main";
+      }
+      .app-shell.openclaw {
+        grid-template-columns: 1fr;
+        grid-template-areas: "main" "chatdock";
+      }
+      .left-nav-col { display: none; }
+      .app-shell.openclaw .chat-dock {
+        position: static;
+        height: auto;
+        min-height: 320px;
+        border-left: none;
+        border-top: 1px solid rgba(255,255,255,0.5);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+
+  <!-- ===== LEFT NAV: Premium SVG Flowchart ===== -->
+  <nav class="left-nav-col" id="leftNavCol" aria-label="工作流流程图导航">
+    <div class="left-nav-title">工作流总览</div>
+
+    <div class="flow-canvas-wrap" id="flowCanvasWrap">
+      <!-- SVG is fully generated by JS below for precise control -->
+      <svg id="flowSvgCanvas" viewBox="0 0 260 760" aria-hidden="true" focusable="false"></svg>
+      <!-- Invisible hit-area buttons, positioned by JS -->
+      <button type="button" class="flow-hit" id="fh1" data-go="1" tabindex="0" aria-label="Step 1: 初始化 Skill"></button>
+      <button type="button" class="flow-hit" id="fh2" data-go="2" tabindex="-1" disabled aria-label="Step 2: 第一轮评测"></button>
+      <button type="button" class="flow-hit" id="fh3" data-go="3" tabindex="-1" disabled aria-label="Step 3: 第一轮结果"></button>
+      <button type="button" class="flow-hit" id="fh4" data-go="4" tabindex="-1" disabled aria-label="Step 4: 迭代优化"></button>
+      <button type="button" class="flow-hit" id="fh5" data-go="5" tabindex="-1" disabled aria-label="Step 5: 第二轮结果"></button>
+      <button type="button" class="flow-hit" id="fh6" data-go="6" tabindex="-1" disabled aria-label="Step 6: 完成训练"></button>
+    </div>
+
+    <div class="left-nav-foot">
+      <div id="flowHint" style="line-height:1.55">加载中…</div>
+    </div>
+  </nav><!-- /left-nav-col -->
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="page">
+    <!-- Hidden original left-flow (kept for JS compatibility) -->
+    <nav class="left-flow" id="leftFlowNav" aria-hidden="true" style="display:none">
+      <div class="left-flow-graph" id="leftFlowGraph">
+        <button type="button" class="flow-step" data-go="1" style="display:none"></button>
+        <button type="button" class="flow-step" data-go="2" style="display:none" disabled></button>
+        <button type="button" class="flow-step" data-go="3" style="display:none" disabled></button>
+        <button type="button" class="flow-step" data-go="4" style="display:none" disabled></button>
+        <button type="button" class="flow-step" data-go="5" style="display:none" disabled></button>
+        <svg class="left-flow-svg" style="display:none">
+          <path class="edge" id="edge-1-2"/>
+          <path class="edge" id="edge-2-3"/>
+          <path class="edge" id="edge-3-4"/>
+          <path class="edge" id="edge-4-5"/>
+          <path class="loop" id="edge-loop-5-2"/>
+        </svg>
+      </div>
+    </nav>
+
+    <!-- Page header -->
+    <div class="hero">
+      <h1>导诊评测工作流</h1>
+      <p>两轮迭代评测 · 自动同步结果 · OpenClaw 协同</p>
+    </div>
+
+    <div class="panels">
+      <!-- Step 1 -->
+      <div class="panel active" id="panel1" data-step="1" role="tabpanel">
+        <div class="step-badge">Step 1 / 5</div>
+        <div class="card">
+          <h2>工作区与采样参数</h2>
+          <p class="hint">路径与 <code>references/workflow_workspace.json</code> 中声明一致（界面打开时自动填入）；Agent 之后按该路径创建目录即可，无需你手填。保存后会记住科室与采样参数。</p>
+          <label class="field">工作区路径（与 json 声明同步，可临时覆盖）</label>
+          <input type="text" id="workspace" placeholder="由服务端读取 workflow_workspace.json" autocomplete="off" />
+          <div class="row">
+            <label>采样条数 n <input type="number" id="sampleN" value="5" min="1" max="50" style="width:4rem" /></label>
+            <label>随机种子（可选）<input type="number" id="seed" placeholder="留空" style="width:6rem" /></label>
+          </div>
+        </div>
+        <div class="card">
+          <h2>科室范围</h2>
+          <p class="hint">多选；采样仅覆盖已选科室对应的病例。</p>
+          <div class="row">
+            <button type="button" id="btnAll">全选</button>
+            <button type="button" id="btnNone">全不选</button>
+            <button class="primary" type="button" id="btnSaveConfig">保存科室与工作区</button>
+          </div>
+          <div class="grid" id="deptGrid"></div>
+          <div class="msg" id="cfgMsg"></div>
+        </div>
+        <div class="card">
+          <h2>当前导诊 Skill（只读）</h2>
+          <p class="hint">纯文本预览初始化的导诊 Skill，后续通过两轮评测进行迭代更新。</p>
+          <div class="row">
+            <button type="button" id="btnLoadSkill">刷新</button>
+          </div>
+          <pre class="skill-preview empty" id="skillPreview">将自动尝试读取 SKILL。</pre>
+          <div class="msg" id="skillMsg"></div>
+        </div>
+        <div class="nav-row">
+          <span></span>
+          <div class="right">
+            <button type="button" class="primary" id="btnNext1">下一步</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: 第一轮评测（指引） -->
+      <div class="panel" id="panel2" data-step="2" role="tabpanel">
+        <div class="step-badge">Step 2 / 5</div>
+        <div class="card">
+          <h2>第一轮评测（在 Agent 中执行）</h2>
+          <p class="hint">请在 Agent 对话中完成「触发 + 断言」类评测（元 skill / skill-creator 标准流程）。</p>
+          <ul class="compact">
+            <li>已准备 <code>evals/evals.json</code>，覆盖代表性场景。</li>
+            <li>为每条用例并行跑 <strong>with_skill</strong> 与 <strong>without_skill</strong>，并用 grader 检查 assertions。</li>
+            <li>工作区下出现 <code>eval-*</code> 及阶段一产出（如 <code>response.md</code>、<code>grading.json</code>）。第一轮通过后再进入第二轮。</li>
+          </ul>
+        </div>
+        <div class="chat-remind" role="status" aria-live="polite">
+          <span class="chat-remind-title">重要提示</span>
+          <p class="chat-remind-line">请在右侧 OpenClaw Chat 卡片继续第一轮评测交互</p>
+        </div>
+        <div class="nav-row">
+          <button type="button" class="ghost" id="btnPrev2">上一步</button>
+          <div class="right">
+            <button type="button" class="primary" id="btnNext2">下一步</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: 第一轮评测结果 -->
+      <div class="panel" id="panel3" data-step="3" role="tabpanel">
+        <div class="step-badge">Step 3 / 5</div>
+        <div class="card">
+          <h2>第一轮评测结果（自动同步）</h2>
+          <p class="hint">读取工作区 <code>eval-*</code> 下阶段一产出；首轮跑完后此处会展示 with/without 与 assertions。约每 12 秒自动刷新，也可点「刷新结果」。</p>
+          <div class="row">
+            <button type="button" class="primary" id="btnRefreshReview">刷新结果</button>
+            <span class="msg" id="reviewStatusMsg" style="margin-top:0"></span>
+          </div>
+          <div class="review-shell" id="reviewFirst"></div>
+        </div>
+        <div class="nav-row">
+          <button type="button" class="ghost" id="btnPrev3">上一步</button>
+          <div class="right">
+            <button type="button" class="primary" id="btnNext3">下一步</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4: 第二轮评测（细则、采样、准备 PIORS） -->
+      <div class="panel" id="panel4" data-step="4" role="tabpanel">
+        <div class="step-badge">Step 4 / 5</div>
+        <div class="card">
+          <h2>第二轮：评分细则</h2>
+          <p class="hint">以下为可编辑的评分要点；保存时会写回项目文件。页头等固定说明由系统自动维护，不在此展示。</p>
+          <div class="row">
+            <button type="button" id="btnLoadRubric">从文件载入</button>
+            <button class="primary" type="button" id="btnSaveRubric">保存并写回</button>
+          </div>
+          <div class="msg" id="rubricMsg"></div>
+          <div id="rubricRoot">
+            <div class="rubric-block">
+              <h3>科室准确率</h3>
+              <p class="subhint">如何判定推荐科室与标准答案一致。</p>
+              <textarea id="rubricDept" class="rubric-ta rubric-dept" placeholder="每条一行或使用列表说明…"></textarea>
+            </div>
+            <div class="rubric-block">
+              <h3>信息收集分（1–5）</h3>
+              <p class="subhint">各分值对应的信息收集完整度。</p>
+              <div class="rubric-table-wrap">
+                <table class="rubric-table" aria-label="信息收集分">
+                  <thead><tr><th>分</th><th>标准</th></tr></thead>
+                  <tbody id="rubricInfoBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="rubric-block">
+              <h3>整体表现分（1–5）</h3>
+              <p class="subhint">导诊完成度与逻辑。</p>
+              <div class="rubric-table-wrap">
+                <table class="rubric-table" aria-label="整体表现分">
+                  <thead><tr><th>分</th><th>标准</th></tr></thead>
+                  <tbody id="rubricOverallBody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="rubric-block">
+              <h3>效率（记录用）</h3>
+              <p class="subhint">轮次、回复长度等记录口径。</p>
+              <textarea id="rubricEff" class="rubric-ta rubric-eff" placeholder=""></textarea>
+            </div>
+            <div class="rubric-block">
+              <h3>自定义补充（可选）</h3>
+              <p class="subhint">额外加减分或特殊规则。</p>
+              <textarea id="rubricCustom" class="rubric-ta rubric-custom" placeholder=""></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>数据采样</h2>
+          <p class="hint">按已选科室从病例库流式抽取若干条，写入当前工作区。</p>
+          <div class="row">
+            <button class="primary" type="button" id="btnSample" disabled>执行采样</button>
+          </div>
+          <div class="msg" id="sampleMsg"></div>
+          <p class="hint" id="sampleGateHint" style="margin-top:0.75rem">采样完成后，在 Agent 环境中按 <code>PHASE2_NEXT_STEPS.md</code> 跑仿真与评分。</p>
+        </div>
+        <div class="card">
+          <h2>第二轮评测（准备与标记）</h2>
+          <p class="hint">采样生成 <code>eval_cases.json</code> 后，点击下方将展开 <code>eval-1…</code>、写入 <code>triage_case.json</code>，并生成 <code>PHASE2_NEXT_STEPS.md</code>。Simulator/Grader 在 Agent 中执行；「标记已开始」仅记录状态。</p>
+          <p class="hint" id="phase2StatusLine" style="margin-top:0.5rem"></p>
+          <div class="row">
+            <button type="button" class="primary" id="btnPreparePhase2" disabled>准备第二轮评测目录</button>
+            <button type="button" id="btnPhase2Start" disabled>标记已开始第二轮</button>
+          </div>
+          <div class="msg" id="phase2Msg"></div>
+        </div>
+        <div class="chat-remind" role="status" aria-live="polite">
+          <span class="chat-remind-title">重要提示</span>
+          <p class="chat-remind-line">请在右侧 OpenClaw Chat 卡片继续第二轮评测交互</p>
+        </div>
+        <div class="nav-row">
+          <button type="button" class="ghost" id="btnPrev4">上一步</button>
+          <div class="right">
+            <button type="button" class="primary" id="btnNext4">下一步</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5: 第二轮评测结果与反馈 -->
+      <div class="panel" id="panel5" data-step="5" role="tabpanel">
+        <div class="step-badge">Step 5 / 5</div>
+        <div class="card">
+          <h2>关于评测展示</h2>
+          <p class="hint">结果仅通过当前工作流页（默认 <code>http://127.0.0.1:3120/</code>）第 3、5 步展示，无需再启动任何独立回看页面。</p>
+        </div>
+        <div class="card">
+          <h2>工作流反馈</h2>
+          <p class="hint">记录改进想法，会保存到当前工作区。</p>
+          <textarea id="feedback" style="min-height:120px" placeholder="改进建议、问题记录…"></textarea>
+          <div class="row">
+            <button type="button" id="btnFeedback">保存反馈</button>
+          </div>
+          <div class="msg" id="fbMsg"></div>
+        </div>
+        <div class="chat-remind" role="status" aria-live="polite">
+          <span class="chat-remind-title">重要提示</span>
+          <p class="chat-remind-line">如需继续优化导诊 skill，请在右侧 OpenClaw Chat 卡片继续</p>
+        </div>
+        <div class="card">
+          <h2>第二轮评测结果（自动同步）</h2>
+          <p class="hint">与上一步相同数据源；对话仿真与 PIORS 打分完成后，此处展示对话与评分条等。可点刷新或等待自动刷新。</p>
+          <div class="row">
+            <button type="button" class="primary" id="btnRefreshReviewB">刷新结果</button>
+            <span class="msg" id="reviewStatusMsgB" style="margin-top:0"></span>
+          </div>
+          <div class="review-shell" id="reviewSecond"></div>
+        </div>
+        <div class="nav-row">
+          <button type="button" class="ghost" id="btnPrev5">上一步</button>
+          <div class="right">
+            <button type="button" class="primary" id="btnNext5">完成训练</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 6: 完成训练 -->
+      <div class="panel" id="panel6" data-step="6" role="tabpanel">
+        <div class="step-badge">Step 6 / 6</div>
+        <div class="card">
+          <h2>训练完成：最终导诊 Skill</h2>
+          <p class="hint">展示当前工作区关联到的最终 <code>SKILL.md</code>（只读）。可用于验收与归档。</p>
+          <div class="row">
+            <button type="button" id="btnLoadFinalSkill">刷新最终 Skill</button>
+          </div>
+          <pre class="skill-preview empty" id="finalSkillPreview">将自动尝试读取最终 SKILL。</pre>
+          <div class="msg" id="finalSkillMsg"></div>
+        </div>
+        <div class="nav-row">
+          <button type="button" class="ghost" id="btnPrev6">上一步</button>
+          <span></span>
+        </div>
+      </div>
+    </div><!-- /panels -->
+  </div><!-- /page -->
+
+  <!-- ===== CHAT DOCK (right column, openclaw only) ===== -->
+  <aside class="chat-dock" id="chatDock" aria-label="OpenClaw chat dock">
+    <div class="chat-head">OpenClaw Chat<div class="chat-status" id="chatStatus">初始化中…</div></div>
+    <div class="chat-body" id="chatBody">
+      <div class="chat-msg assistant">已检测到 OpenClaw 环境。后续导诊构建对话可在此继续。</div>
+    </div>
+    <div class="chat-foot">
+      <textarea id="chatInput" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>
+      <button type="button" class="primary" id="chatSendBtn">发送</button>
+    </div>
+  </aside><!-- /chat-dock -->
+
+  </div><!-- /app-shell -->
+
+  <script>
+    const STORAGE_STEP = "triageWorkflowStep";
+    const STORAGE_WS = "triageWorkflowWorkspace";
+    async function api(path, opt) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      try {
+        const resp = await fetch(
+          path,
+          Object.assign(
+            { headers: { "Content-Type": "application/json" }, signal: controller.signal },
+            opt || {}
+          )
+        );
+        const data = await resp.json().catch(() => ({}));
+        if (typeof data === "object" && data !== null && data.ok === undefined) {
+          data.ok = resp.ok;
+        }
+        if (!resp.ok && data.error === undefined) {
+          data.error = "HTTP " + resp.status;
+        }
+        return data;
+      } catch (e) {
+        if (e && e.name === "AbortError") {
+          return { ok: false, error: "请求超时，请稍后重试" };
+        }
+        return { ok: false, error: "网络异常：无法连接工作流服务" };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    let currentStep = 1;
+    let flowEnabledSteps = new Set([1]);
+    let flowAchievedStep = 1;
+    let flowAvailabilityPollBusy = false;
+    let skillLoadSeq = 0;
+    let finalSkillLoadSeq = 0;
+    /** 细则编辑区是否与磁盘文件一致；不一致时禁止采样 */
+    let rubricSynced = true;
+    let runtimeInfo = { is_openclaw: false, runtime: "generic" };
+    const STORAGE_CHAT_SESSION = "triageWorkflowChatSessionKey";
+    let chatSessionKey = "agent:main:main";
+    let chatSending = false;
+
+    function clearChat() {
+      const body = document.getElementById("chatBody");
+      if (!body) return;
+      body.innerHTML = "";
+    }
+
+    function normalizeUserText(text) {
+      if (typeof text !== "string") return "";
+      let t = text.trim();
+      if (!t) return "";
+      if (t.includes("OpenClaw runtime context (internal):") || t.includes("[Internal task completion event]")) {
+        return "";
+      }
+      if (t.includes("Sender (untrusted metadata):")) {
+        const lines = t.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+        const stamped = [...lines].reverse().find((s) => /^\[[^\]]+\]/.test(s));
+        if (stamped) {
+          t = stamped;
+        } else {
+          const fallback = [...lines].reverse().find((s) => !/^(```|\{|\}|\"|sender\s*\(|\[\[)/i.test(s));
+          t = fallback || t;
+        }
+      }
+      t = t.replace(/^\[[^\]]+\]\s*/g, "").trim();
+      return t;
+    }
+
+    function normalizeAssistantText(text) {
+      if (typeof text !== "string") return "";
+      let t = text.trim();
+      if (!t) return "";
+      t = t.replace(/^\[\[reply_to_current\]\]\s*/i, "").trim();
+      if (t.includes("OpenClaw runtime context (internal):") || t.includes("[Internal task completion event]")) {
+        return "";
+      }
+      return t;
+    }
+
+    function maybeClampAssistantMessage(wrapper, contentEl, text) {
+      if (!wrapper || !contentEl || typeof text !== "string") return;
+      const lineCount = text.split(/\r?\n/).length;
+      const needsClamp = lineCount > 3 || text.length > 220;
+      if (!needsClamp) return;
+      contentEl.classList.add("clamped");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chat-expand-btn";
+      btn.textContent = "展开";
+      let expanded = false;
+      btn.onclick = () => {
+        expanded = !expanded;
+        contentEl.classList.toggle("clamped", !expanded);
+        btn.textContent = expanded ? "收起" : "展开";
+      };
+      wrapper.appendChild(btn);
+    }
+
+    function appendChat(role, text) {
+      const body = document.getElementById("chatBody");
+      if (!body) return;
+      const isUser = role === "user";
+      const shownText = isUser ? normalizeUserText(text || "") : normalizeAssistantText(text || "");
+      if (!shownText) return;
+      const el = document.createElement("div");
+      el.className = "chat-msg " + (isUser ? "user" : "assistant");
+      const contentEl = document.createElement("div");
+      contentEl.className = "chat-msg-content";
+      contentEl.textContent = shownText;
+      el.appendChild(contentEl);
+      if (!isUser) {
+        maybeClampAssistantMessage(el, contentEl, shownText);
+      }
+      body.appendChild(el);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    async function loadChatHistory(statusEl) {
+      clearChat();
+      appendChat("assistant", "正在加载历史对话…");
+      try {
+        const q = "?sessionKey=" + encodeURIComponent(chatSessionKey) + "&limit=80";
+        const r = await api("/api/chat-history" + q);
+        clearChat();
+        if (r.ok && Array.isArray(r.messages) && r.messages.length) {
+          r.messages.forEach((m) => appendChat(m.role === "user" ? "user" : "assistant", m.text || ""));
+          if (r.session_key) {
+            chatSessionKey = r.session_key;
+            try { localStorage.setItem(STORAGE_CHAT_SESSION, chatSessionKey); } catch (e) {}
+          }
+          if (statusEl) {
+            statusEl.textContent = r.bridge === "local-session-fallback"
+              ? "已从本地会话加载历史（网关无 read 权限）"
+              : "已加载历史对话并连接 OpenClaw API";
+          }
+          return;
+        }
+        appendChat("assistant", "已检测到 OpenClaw 环境。后续导诊构建对话可在此继续。");
+        if (!r.ok && statusEl) statusEl.textContent = "历史对话加载失败，已切换空会话";
+      } catch (e) {
+        clearChat();
+        appendChat("assistant", "已检测到 OpenClaw 环境。后续导诊构建对话可在此继续。");
+        if (statusEl) statusEl.textContent = "历史对话加载异常，已切换空会话";
+      }
+    }
+
+    function setupChatDock() {
+      const btn = document.getElementById("chatSendBtn");
+      const input = document.getElementById("chatInput");
+      const status = document.getElementById("chatStatus");
+      if (!btn || !input || !status) return;
+      status.textContent = runtimeInfo.chat_bridge === "available" ? "已连接 OpenClaw API" : "未检测到可用 OpenClaw chat bridge";
+      if (runtimeInfo.chat_bridge === "available") {
+        loadChatHistory(status);
+      } else {
+        clearChat();
+        appendChat("assistant", "已检测到 OpenClaw 环境，但当前未连接到可用 chat bridge。");
+      }
+      const send = async () => {
+        if (chatSending) return;
+        const text = input.value.trim();
+        if (!text) return;
+        if (runtimeInfo.chat_bridge !== "available") {
+          appendChat("assistant", "当前未配置 OpenClaw chat bridge。请检查网关配置与 token。");
+          return;
+        }
+        chatSending = true;
+        btn.disabled = true;
+        appendChat("user", text);
+        input.value = "";
+        appendChat("assistant", "处理中…");
+        const loadingNodes = document.querySelectorAll("#chatBody .chat-msg.assistant");
+        const loadingNode = loadingNodes[loadingNodes.length - 1];
+        try {
+          const r = await api("/api/chat", {
+            method: "POST",
+            body: JSON.stringify({ message: text, sessionKey: chatSessionKey })
+          });
+          if (r.ok) {
+            if (loadingNode) loadingNode.remove();
+            if (Array.isArray(r.replies) && r.replies.length) {
+              r.replies.forEach((txt) => appendChat("assistant", txt || "（空回复）"));
+            } else {
+              appendChat("assistant", r.reply || "（空回复）");
+            }
+            if (r.session_key) {
+              chatSessionKey = r.session_key;
+              try { localStorage.setItem(STORAGE_CHAT_SESSION, chatSessionKey); } catch (e) {}
+            }
+            status.textContent = r.bridge === "cli-fallback" ? "已切换 OpenClaw CLI 兜底" : "已连接 OpenClaw API";
+          } else {
+            if (loadingNode) loadingNode.remove();
+            appendChat("assistant", "请求失败：" + (r.error || JSON.stringify(r)));
+            status.textContent = "OpenClaw API 请求失败";
+          }
+        } catch (e) {
+          if (loadingNode) loadingNode.remove();
+          appendChat("assistant", "请求异常，请稍后重试。");
+          status.textContent = "OpenClaw API 请求异常";
+        } finally {
+          chatSending = false;
+          btn.disabled = false;
+        }
+      };
+      btn.onclick = send;
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          send();
+        }
+      });
+    }
+
+    async function initRuntimeUI() {
+      try {
+        const r = await api("/api/runtime");
+        if (r && typeof r.is_openclaw === "boolean") runtimeInfo = r;
+      } catch (e) {}
+      const shell = document.getElementById("appShell");
+      const dock = document.getElementById("chatDock");
+      if (!shell || !dock) return;
+      if (runtimeInfo.is_openclaw) {
+        shell.classList.add("openclaw");
+        dock.style.display = "";  // let CSS flex take over
+        setupChatDock();
+      } else {
+        shell.classList.remove("openclaw");
+        dock.style.display = "none";
+      }
+    }
+
+    function setProgressUI(step) {
+      // No-op: top progress bar removed, navigation handled by left flow diagram
+    }
+
+    function updateProgressConnectors() {
+      // No-op: replaced by left flow diagram
+    }
+
+    let reviewPollTimer = null;
+    let firstRoundAutoRefreshStopped = false;
+
+    function escHtml(s) {
+      return String(s || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    }
+
+    function renderAssertions(expectations) {
+      if (!Array.isArray(expectations) || !expectations.length) return '<div class="rv-empty">无 assertions 明细</div>';
+      let html = '<ul class="rv-assert-list">';
+      for (const it of expectations) {
+        const ok = it && it.passed;
+        html += '<li>' + (ok ? "✓ " : "✗ ") + escHtml(it && it.text ? it.text : "");
+        if (it && it.evidence) html += '<div class="rv-assert-ev">' + escHtml(it.evidence) + '</div>';
+        html += '</li>';
+      }
+      html += '</ul>';
+      return html;
+    }
+
+    function renderStage1Block(title, badgeCls, entry) {
+      if (!entry) return "";
+      const gd = entry.grading || {};
+      const sm = gd.summary || {};
+      const pct = Math.round(Number(sm.pass_rate || 0) * 100);
+      let html = '<div class="rv-card"><div class="rv-head"><span>' + escHtml(title) + '</span><span class="rv-badge ' + badgeCls + '">' + escHtml((sm.passed ?? "-") + "/" + (sm.total ?? "-") + " · " + pct + "%") + '</span></div>';
+      html += '<details class="rv-detail" open><summary>回复内容</summary>';
+      if (entry.response) html += '<pre class="rv-pre">' + escHtml(entry.response) + '</pre>';
+      else html += '<div class="rv-empty">暂无回复内容</div>';
+      html += '</details>';
+      html += '<details class="rv-detail" open><summary>Assertions 明细</summary>';
+      html += renderAssertions(gd.expectations);
+      html += '</details>';
+      html += '</div>';
+      return html;
+    }
+
+    function renderDialogue(turns) {
+      if (!Array.isArray(turns) || !turns.length) return '<div class="rv-empty">暂无对话内容</div>';
+      let html = '<div class="rv-chat">';
+      for (const t of turns) {
+        const isNurse = t.role === "nurse";
+        html += '<div class="rv-bubble ' + (isNurse ? "nurse" : "patient") + '"><div class="role">' + (isNurse ? "护士" : "患者") + (t.action ? " - " + escHtml(t.action) : "") + '</div>' + escHtml(t.content || "") + '</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function renderBenchmark(benchmark, round) {
+      if (!benchmark) return '<div class="rv-card"><div class="rv-empty">暂无 benchmark 数据</div></div>';
+      const isStage1 = !!(benchmark.run_summary && Array.isArray(benchmark.runs));
+      const isStage2 = !!(typeof benchmark.num_cases === "number" && Array.isArray(benchmark.per_case));
+      if (round === "first" && !isStage1) return "";
+      if (round === "second" && !isStage2) return "";
+      if (isStage1) {
+        const rs = benchmark.run_summary || {};
+        const ws = rs.with_skill || {};
+        const bs = rs.without_skill || {};
+        let html = '<div class="rv-card rv-overview"><div class="rv-head"><span>Benchmark 汇总（第一轮）</span></div><div class="rv-grid">';
+        html += '<div class="rv-stat"><div class="k">With Skill Pass Rate</div><div class="v">' + (((ws.pass_rate && ws.pass_rate.mean) || 0) * 100).toFixed(1) + '%</div></div>';
+        html += '<div class="rv-stat"><div class="k">Baseline Pass Rate</div><div class="v">' + (((bs.pass_rate && bs.pass_rate.mean) || 0) * 100).toFixed(1) + '%</div></div>';
+        html += '<div class="rv-stat"><div class="k">Delta</div><div class="v">' + escHtml((rs.delta && rs.delta.pass_rate) || "-") + '</div></div>';
+        html += '</div><div class="rv-table-wrap"><table class="rv-table"><thead><tr><th>Eval</th><th>Config</th><th>Pass</th><th>Passed</th><th>Total</th></tr></thead><tbody>';
+        for (const r of benchmark.runs) {
+          html += '<tr><td>' + escHtml(r.eval_id) + '</td><td>' + escHtml(r.configuration) + '</td><td>' + (Number((r.result && r.result.pass_rate) || 0) * 100).toFixed(0) + '%</td><td>' + escHtml(r.result && r.result.passed) + '</td><td>' + escHtml(r.result && r.result.total) + '</td></tr>';
+        }
+        html += '</tbody></table></div></div>';
+        return html;
+      }
+      if (isStage2) {
+        let html = '<div class="rv-card rv-overview"><div class="rv-head"><span>Benchmark 汇总（第二轮）</span></div><div class="rv-grid">';
+        html += '<div class="rv-stat"><div class="k">Cases</div><div class="v">' + escHtml(benchmark.num_cases) + '</div></div>';
+        html += '<div class="rv-stat"><div class="k">Accuracy</div><div class="v">' + (Number(benchmark.accuracy || 0) * 100).toFixed(1) + '%</div></div>';
+        html += '<div class="rv-stat"><div class="k">Avg Info Score</div><div class="v">' + Number(benchmark.avg_info_score || 0).toFixed(2) + '</div></div>';
+        html += '<div class="rv-stat"><div class="k">Avg Overall Score</div><div class="v">' + Number(benchmark.avg_overall_score || 0).toFixed(2) + '</div></div>';
+        html += '</div><div class="rv-table-wrap"><table class="rv-table"><thead><tr><th>Case ID</th><th>Pred</th><th>Real</th><th>OK</th><th>Info</th><th>Overall</th><th>Turns</th></tr></thead><tbody>';
+        for (const c of benchmark.per_case) {
+          html += '<tr><td>' + escHtml(c.case_id) + '</td><td>' + escHtml(c.department_pred) + '</td><td>' + escHtml(c.department_real) + '</td><td>' + (c.correct ? "Yes" : "No") + '</td><td>' + escHtml(c.info_score) + '</td><td>' + escHtml(c.overall_score) + '</td><td>' + escHtml(c.turn_count) + '</td></tr>';
+        }
+        html += '</tbody></table></div></div>';
+        return html;
+      }
+      return '<div class="rv-card"><div class="rv-empty">benchmark 格式无法识别</div></div>';
+    }
+
+    function renderReviewRound(data, round) {
+      const list = Array.isArray(data.evals) ? data.evals : [];
+      const container = round === "second" ? document.getElementById("reviewSecond") : document.getElementById("reviewFirst");
+      if (!container) return;
+      if (!list.length) {
+        container.innerHTML = '<p class="rv-empty">当前还没有评测结果。</p>';
+        return;
+      }
+      let html = "";
+      html += renderBenchmark(data.benchmark, round);
+      for (const ev of list) {
+        const name = escHtml(ev.name || ev.id || "eval");
+        const prompt = escHtml(ev.prompt || "");
+        const hasStage1 = !!(ev.with_skill || ev.without_skill);
+        const hasStage2 = !!(ev.dialogue || ev.triage_grading);
+        if (round === "first" && !hasStage1) continue;
+        if (round === "second" && !hasStage2) continue;
+        html += '<section class="rv-case"><div class="rv-head"><span>' + name + '</span><span class="rv-badge">' + escHtml(ev.id || "") + '</span></div>';
+        if (prompt) html += '<p class="hint" style="margin-top:0">Prompt: ' + prompt + '</p>';
+        html += '<div class="rv-divider"></div>';
+        if (round === "first") {
+          html += '<div class="rv-mini-title">第一轮对比</div>';
+          html += '<div class="rv-row-2">';
+          html += renderStage1Block("With Skill", "skill", ev.with_skill);
+          html += renderStage1Block("Without Skill", "base", ev.without_skill);
+          html += '</div>';
+        } else {
+          const tg = ev.triage_grading || {};
+          html += '<div class="rv-mini-title">第二轮评分概览</div>';
+          html += '<div class="rv-grid">';
+          html += '<div class="rv-stat"><div class="k">科室匹配</div><div class="v">' + (tg.correct ? "是" : "否") + '</div></div>';
+          html += '<div class="rv-stat"><div class="k">信息收集分</div><div class="v">' + escHtml(tg.info_score ?? "-") + '</div></div>';
+          html += '<div class="rv-stat"><div class="k">整体表现分</div><div class="v">' + escHtml(tg.overall_score ?? "-") + '</div></div>';
+          html += '<div class="rv-stat"><div class="k">轮次</div><div class="v">' + escHtml(tg.turn_count ?? "-") + '</div></div>';
+          html += '</div>';
+          html += '<div class="rv-divider"></div>';
+          html += '<div class="rv-sec-title">对话记录</div>';
+          html += renderDialogue(ev.dialogue && ev.dialogue.turns);
+          if (tg.evidence) {
+            html += '<details class="rv-detail" style="margin-top:0.55rem" open><summary>评分依据</summary><div class="rv-evidence">';
+            if (tg.evidence.department_extraction) html += '<p><b>科室提取：</b>' + escHtml(tg.evidence.department_extraction) + '</p>';
+            if (tg.evidence.info_assessment) html += '<p><b>信息评估：</b>' + escHtml(tg.evidence.info_assessment) + '</p>';
+            if (tg.evidence.overall_assessment) html += '<p><b>整体评估：</b>' + escHtml(tg.evidence.overall_assessment) + '</p>';
+            html += '</div></details>';
+          }
+        }
+        html += '</section>';
+      }
+      container.innerHTML = html || '<p class="rv-empty">该阶段结果尚未生成。</p>';
+    }
+
+    async function refreshReviewEmbeds(silent) {
+      const ws = document.getElementById("workspace").value.trim();
+      const hint = document.getElementById("reviewStatusMsg");
+      const hintB = document.getElementById("reviewStatusMsgB");
+      if (!ws) {
+        if (!silent) {
+          if (hint) {
+            hint.className = "msg err";
+            hint.textContent = "请先填写工作区路径";
+          }
+          if (hintB) {
+            hintB.className = "msg err";
+            hintB.textContent = "请先填写工作区路径";
+          }
+        }
+        return;
+      }
+      const r = await api("/api/review-data?workspace=" + encodeURIComponent(ws));
+      if (r && typeof r.eval_count === "number" && r.eval_count === 0) {
+        const msg = '<p class="rv-empty">未找到评测结果。workspace=' + escHtml(ws) + '。</p>';
+        const a = document.getElementById("reviewFirst");
+        const b = document.getElementById("reviewSecond");
+        if (a) a.innerHTML = msg;
+        if (b) b.innerHTML = msg;
+      } else {
+        renderReviewRound(r, "first");
+        renderReviewRound(r, "second");
+      }
+      if (!silent && hint) {
+        hint.className = "msg ok";
+        hint.textContent = "已刷新第一轮结果";
+      }
+      if (!silent && hintB) {
+        hintB.className = "msg ok";
+        hintB.textContent = "已刷新第二轮结果";
+      }
+      touchReviewStatus(r);
+      if (!silent) {
+        await updateFlowAvailability();
+      }
+    }
+
+    async function touchReviewStatus(preloaded) {
+      const ws = document.getElementById("workspace").value.trim();
+      if (!ws) return;
+      const r = preloaded || (await api("/api/review-data?workspace=" + encodeURIComponent(ws)));
+      if (typeof r.eval_count !== "number") return;
+      // 第一轮结果已出现后，停止约 12 秒自动刷新，避免无意义轮询。
+      if (!firstRoundAutoRefreshStopped && r.eval_count > 0) {
+        firstRoundAutoRefreshStopped = true;
+        if (reviewPollTimer) {
+          clearInterval(reviewPollTimer);
+          reviewPollTimer = null;
+        }
+      }
+      const line =
+        "已检出 " +
+        r.eval_count +
+        " 个 eval 目录" +
+        (r.has_stage2 ? "（含第二轮对话/打分）" : "。");
+      const elA = document.getElementById("reviewStatusMsg");
+      if (elA) {
+        elA.className = "msg";
+        elA.textContent = line;
+      }
+      const elB = document.getElementById("reviewStatusMsgB");
+      if (elB) {
+        elB.className = "msg";
+        elB.textContent = r.has_stage2
+          ? "第二轮已就绪。" + line
+          : "第二轮尚未生成，请先完成仿真与评分。";
+      }
+    }
+
+    function getWorkspaceValue() {
+      const el = document.getElementById("workspace");
+      return el ? el.value.trim() : "";
+    }
+
+    function pickBestStep(desired, enabledSteps) {
+      if (enabledSteps.has(desired)) return desired;
+      for (let n = desired - 1; n >= 1; n--) {
+        if (enabledSteps.has(n)) return n;
+      }
+      for (let n = 1; n <= 6; n++) {
+        if (enabledSteps.has(n)) return n;
+      }
+      return 1;
+    }
+
+    function setFlowAvailability(enabledSteps, hintText) {
+      flowEnabledSteps = enabledSteps;
+      const hintEl = document.getElementById("flowHint");
+      if (hintEl && typeof hintText === "string") hintEl.textContent = hintText;
+      document.querySelectorAll(".flow-step[data-go]").forEach((el) => {
+        const n = parseInt(el.dataset.go, 10);
+        const enabled = enabledSteps.has(n);
+        el.disabled = !enabled;
+        el.classList.toggle("disabled", !enabled);
+        el.setAttribute("aria-disabled", enabled ? "false" : "true");
+      });
+      // Update new hit-area buttons
+      for (let n = 1; n <= 6; n++) {
+        const el = document.getElementById("fh" + n);
+        if (!el) continue;
+        const enabled = enabledSteps.has(n);
+        el.disabled = !enabled;
+        el.setAttribute("aria-disabled", enabled ? "false" : "true");
+      }
+    }
+
+    function setFlowNav(step) {
+      document.querySelectorAll(".flow-step[data-go]").forEach((el) => {
+        const n = parseInt(el.dataset.go, 10);
+        const isActive = n === step;
+        const isDone = n < flowAchievedStep && !isActive;
+        el.classList.toggle("active", isActive);
+        el.classList.toggle("done", isDone);
+        el.setAttribute("aria-selected", isActive ? "true" : "false");
+        el.tabIndex = isActive ? 0 : -1;
+      });
+
+      // Update hit-area buttons (new SVG flowchart)
+      for (let n = 1; n <= 6; n++) {
+        const el = document.getElementById("fh" + n);
+        if (!el) continue;
+        el.setAttribute("aria-selected", n === step ? "true" : "false");
+        el.tabIndex = n === step ? 0 : -1;
+      }
+
+      // Re-render SVG to reflect new state
+      renderFlowSvg(step, flowAchievedStep, flowEnabledSteps);
+
+      const setEdgeDone = (id, on) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.toggle("done", !!on);
+      };
+      setEdgeDone("edge-1-2", flowAchievedStep >= 2);
+      setEdgeDone("edge-2-3", flowAchievedStep >= 3);
+      setEdgeDone("edge-3-4", flowAchievedStep >= 4);
+      setEdgeDone("edge-4-5", flowAchievedStep >= 5);
+      setEdgeDone("edge-loop-5-2", flowAchievedStep >= 5);
+    }
+
+    async function updateFlowAvailability() {
+      const ws = getWorkspaceValue();
+      const enabled = new Set([1]);
+      let achieved = 1;
+
+      if (ws) {
+        enabled.add(2);
+        achieved = Math.max(achieved, 2);
+      }
+
+      let review = null;
+      let phase = null;
+      if (ws) {
+        try { review = await api("/api/review-data?workspace=" + encodeURIComponent(ws)); } catch (e) {}
+        try { phase = await api("/api/phase2-status?workspace=" + encodeURIComponent(ws)); } catch (e) {}
+      }
+
+      const evalCount = review && typeof review.eval_count === "number" ? review.eval_count : 0;
+      const hasStage2 = !!(review && review.has_stage2);
+      const hasEvalCases = !!(phase && phase.has_eval_cases);
+
+      if (evalCount > 0) {
+        enabled.add(3);
+        enabled.add(4);
+        achieved = Math.max(achieved, 3);
+      }
+      if (hasEvalCases) {
+        enabled.add(4);
+        achieved = Math.max(achieved, 4);
+      }
+      if (hasStage2) {
+        enabled.add(5);
+        enabled.add(6);
+        achieved = Math.max(achieved, 6);
+      }
+
+      flowAchievedStep = achieved;
+
+      let hint = "点击左侧流程节点以查看对应步骤";
+      if (!ws) hint = "请先在 Step 1 设置工作区与科室范围";
+      else if (!enabled.has(3)) hint = "第一轮评测结果尚未出现（with/without 需先触发并跑完）";
+      else if (!enabled.has(5) && enabled.has(4)) hint = "第二轮尚未完成，可继续编辑细则、采样并准备仿真";
+      else if (enabled.has(6)) hint = "已完成训练，可进入 Step 6 查看最终 Skill";
+      else if (enabled.has(5)) hint = "检测到第二轮结果，可继续查看对话并记录反馈";
+
+      setFlowAvailability(enabled, hint);
+      setFlowNav(currentStep);
+      return { enabledSteps: enabled, achievedStep: achieved };
+    }
+
+    function showStep(step) {
+      currentStep = Math.max(1, Math.min(6, step));
+      try { localStorage.setItem(STORAGE_STEP, String(currentStep)); } catch (e) {}
+      document.querySelectorAll(".panel").forEach((p) => {
+        const n = parseInt(p.dataset.step, 10);
+        const on = n === currentStep;
+        p.classList.toggle("active", on);
+        p.hidden = !on;
+      });
+      setFlowNav(currentStep);
+      if (currentStep === 4) {
+        updateSampleButton();
+        refreshPhase2Status();
+      }
+      if (currentStep === 1) refreshSkillPreview(false);
+      if (currentStep === 6) refreshFinalSkillPreview(false);
+      if (currentStep === 3 || currentStep === 5) {
+        refreshReviewEmbeds(true);
+      }
+    }
+
+    document.querySelectorAll(".flow-step[data-go]").forEach((el) => {
+      el.addEventListener("click", () => {
+        if (el.disabled) return;
+        showStep(parseInt(el.dataset.go, 10));
+      });
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (!el.disabled) el.click();
+        }
+      });
+    });
+
+    // New SVG flowchart hit-area buttons
+    document.querySelectorAll(".flow-hit[data-go]").forEach((el) => {
+      el.addEventListener("click", () => {
+        if (el.disabled) return;
+        showStep(parseInt(el.dataset.go, 10));
+      });
+      el.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (!el.disabled) el.click();
+        }
+      });
+    });
+
+    async function ensureDepartmentsReady() {
+      const existing = document.querySelectorAll(".dept-cb").length;
+      if (existing > 0) return true;
+      try {
+        await loadDepartments();
+      } catch (e) {}
+      return document.querySelectorAll(".dept-cb").length > 0;
+    }
+
+    async function saveWorkspaceConfig() {
+      const ws = document.getElementById("workspace").value.trim();
+      const msg = document.getElementById("cfgMsg");
+      if (!ws) {
+        msg.className = "msg err";
+        msg.textContent = "工作区路径为空，请刷新页面重试";
+        return false;
+      }
+      const deptReady = await ensureDepartmentsReady();
+      if (!deptReady) {
+        msg.className = "msg err";
+        msg.textContent = "科室列表尚未加载完成，请稍后重试";
+        return false;
+      }
+      let depts = selectedDepts();
+      // 首次加载后可能都未勾选，先默认全选一次，避免“下一步无响应”的体感。
+      if (depts.length === 0 && document.querySelectorAll(".dept-cb").length > 0) {
+        document.querySelectorAll(".dept-cb").forEach((c) => { c.checked = true; });
+        depts = selectedDepts();
+      }
+      if (depts.length === 0) {
+        msg.className = "msg err";
+        msg.textContent = "请至少勾选一个科室，或点「全选」";
+        return false;
+      }
+      const n = parseInt(document.getElementById("sampleN").value, 10) || 5;
+      const seedRaw = document.getElementById("seed").value.trim();
+      const seed = seedRaw === "" ? null : parseInt(seedRaw, 10);
+      const r = await api("/api/config", {
+        method: "POST",
+        body: JSON.stringify({
+          workspace: ws,
+          departments: depts,
+          n: n,
+          seed: seed,
+          stage1_done: false
+        })
+      });
+      if (r.ok) {
+        msg.className = "msg ok";
+        msg.textContent = "配置已保存";
+        try {
+          localStorage.setItem(STORAGE_WS, ws);
+        } catch (e) {}
+        updateSampleButton();
+        refreshSkillPreview(false);
+        return true;
+      }
+      msg.className = "msg err";
+      msg.textContent = r.error || "保存失败，请检查服务端状态后重试";
+      return false;
+    }
+
+    document.getElementById("btnNext1").onclick = async () => {
+      const msg = document.getElementById("cfgMsg");
+      msg.textContent = "保存中…";
+      msg.className = "msg";
+      try {
+        const ok = await saveWorkspaceConfig();
+        if (ok) {
+          await updateFlowAvailability();
+          showStep(2);
+        }
+      } catch (e) {
+        msg.className = "msg err";
+        msg.textContent = "保存失败：网络异常或服务未响应";
+      }
+    };
+    document.getElementById("btnPrev2").onclick = () => showStep(1);
+    document.getElementById("btnNext2").onclick = () => showStep(3);
+    document.getElementById("btnPrev3").onclick = () => showStep(2);
+    document.getElementById("btnNext3").onclick = () => showStep(4);
+    document.getElementById("btnPrev4").onclick = () => showStep(3);
+    document.getElementById("btnNext4").onclick = () => showStep(5);
+    document.getElementById("btnPrev5").onclick = () => showStep(4);
+    document.getElementById("btnNext5").onclick = () => showStep(6);
+    document.getElementById("btnPrev6").onclick = () => showStep(5);
+    document.getElementById("btnRefreshReview").onclick = () => refreshReviewEmbeds(false);
+    document.getElementById("btnRefreshReviewB").onclick = () => refreshReviewEmbeds(false);
+
+    async function loadDepartments() {
+      const d = await api("/api/departments");
+      const list = d.departments || [];
+      const g = document.getElementById("deptGrid");
+      g.innerHTML = "";
+      list.forEach((name) => {
+        const lab = document.createElement("label");
+        lab.innerHTML = '<input type="checkbox" class="dept-cb" value="' + name.replace(/"/g, "&quot;") + '" checked /> ' + name;
+        g.appendChild(lab);
+      });
+    }
+
+    function selectedDepts() {
+      return Array.from(document.querySelectorAll(".dept-cb:checked")).map((c) => c.value);
+    }
+
+    document.getElementById("btnAll").onclick = () => {
+      document.querySelectorAll(".dept-cb").forEach((c) => { c.checked = true; });
+    };
+    document.getElementById("btnNone").onclick = () => {
+      document.querySelectorAll(".dept-cb").forEach((c) => { c.checked = false; });
+    };
+
+    document.getElementById("btnSaveConfig").onclick = async () => {
+      const msg = document.getElementById("cfgMsg");
+      try {
+        const ok = await saveWorkspaceConfig();
+        if (ok) await updateFlowAvailability();
+      } catch (e) {
+        msg.className = "msg err";
+        msg.textContent = "保存失败：网络异常或服务未响应";
+      }
+    };
+
+    function updateSampleButton() {
+      const w = document.getElementById("workspace").value.trim();
+      const ok = !!(w && rubricSynced);
+      document.getElementById("btnSample").disabled = !ok;
+      const gate = document.getElementById("sampleGateHint");
+      if (gate) {
+        if (!w) {
+          gate.textContent = "工作区路径为空（请刷新页面或检查与服务端的连接）。细则若有未保存修改，需先「保存并写回」。";
+        } else if (!rubricSynced) {
+          gate.textContent = "评分细则有未保存的修改：请先点「保存并写回」，或「从文件载入」放弃修改后再采样。";
+        } else {
+          gate.textContent = "采样完成后，在本地 Agent 环境中按评测说明为每条病例跑仿真与评分，并把病例落到对应评测目录。";
+        }
+      }
+    }
+    document.getElementById("workspace").oninput = updateSampleButton;
+
+    function fillScoreTable(tbodyId, rows) {
+      const tb = document.getElementById(tbodyId);
+      tb.innerHTML = "";
+      (rows || []).forEach((r) => {
+        const tr = document.createElement("tr");
+        const sc = document.createElement("td");
+        sc.className = "score-cell";
+        sc.textContent = r.score != null ? String(r.score) : "";
+        const td = document.createElement("td");
+        const ta = document.createElement("textarea");
+        ta.className = "rubric-ta";
+        ta.rows = 2;
+        ta.value = r.criterion != null ? String(r.criterion) : "";
+        td.appendChild(ta);
+        tr.appendChild(sc);
+        tr.appendChild(td);
+        tb.appendChild(tr);
+      });
+    }
+
+    function collectStructured() {
+      function rowsFromTable(tbodyId) {
+        const out = [];
+        document.querySelectorAll("#" + tbodyId + " tr").forEach((tr) => {
+          const sc = tr.querySelector(".score-cell");
+          const ta = tr.querySelector("textarea");
+          if (sc && ta) {
+            out.push({ score: sc.textContent.trim(), criterion: ta.value });
+          }
+        });
+        return out;
+      }
+      return {
+        dept_accuracy: document.getElementById("rubricDept").value,
+        info_collection: rowsFromTable("rubricInfoBody"),
+        overall: rowsFromTable("rubricOverallBody"),
+        efficiency: document.getElementById("rubricEff").value,
+        custom: document.getElementById("rubricCustom").value
+      };
+    }
+
+    let rubricApplyGuard = false;
+    function applyStructured(s) {
+      if (!s) return;
+      rubricApplyGuard = true;
+      try {
+        document.getElementById("rubricDept").value = s.dept_accuracy || "";
+        fillScoreTable("rubricInfoBody", s.info_collection || []);
+        fillScoreTable("rubricOverallBody", s.overall || []);
+        document.getElementById("rubricEff").value = s.efficiency || "";
+        document.getElementById("rubricCustom").value = s.custom || "";
+      } finally {
+        rubricApplyGuard = false;
+      }
+    }
+
+    function rubricMarkDirty() {
+      if (rubricApplyGuard) return;
+      rubricSynced = false;
+      updateSampleButton();
+    }
+
+    document.getElementById("rubricRoot").addEventListener("input", rubricMarkDirty);
+    document.getElementById("rubricRoot").addEventListener("change", rubricMarkDirty);
+
+    async function refreshSkillPreview(manual) {
+      const ws = document.getElementById("workspace").value.trim();
+      const prev = document.getElementById("skillPreview");
+      const msg = document.getElementById("skillMsg");
+      if (!ws) {
+        if (manual) {
+          msg.className = "msg err";
+          msg.textContent = "请先填写工作区路径";
+        }
+        return;
+      }
+      if (manual) {
+        msg.textContent = "读取中…";
+        msg.className = "msg";
+      }
+      const seq = ++skillLoadSeq;
+      const r = await api("/api/workspace-skill?workspace=" + encodeURIComponent(ws));
+      if (seq !== skillLoadSeq) return;
+      if (r.ok === false && r.error) {
+        msg.className = "msg err";
+        msg.textContent = r.error;
+        return;
+      }
+      if (r.content) {
+        prev.textContent = r.content;
+        prev.classList.remove("empty");
+        const tag = r.skillFolder ? "（" + r.skillFolder + "）" : "";
+        const pending = r.workspaceExists === false ? " 工作区目录尚未创建，保存配置或采样时会自动创建。" : "";
+        if (manual) {
+          msg.className = "msg ok";
+          msg.textContent = "已载入" + tag + pending;
+        } else {
+          msg.className = "msg";
+          msg.textContent = r.workspaceExists === false ? "已载入" + tag + "（工作区目录待创建）" : "";
+        }
+      } else {
+        prev.textContent = "（未加载到正文）";
+        prev.classList.add("empty");
+        msg.className = "msg err";
+        msg.textContent = r.hint || "未找到 SKILL.md";
+      }
+    }
+
+    document.getElementById("btnLoadSkill").onclick = () => refreshSkillPreview(true);
+
+    async function refreshFinalSkillPreview(manual) {
+      const ws = document.getElementById("workspace").value.trim();
+      const prev = document.getElementById("finalSkillPreview");
+      const msg = document.getElementById("finalSkillMsg");
+      if (!prev || !msg) return;
+      if (!ws) {
+        if (manual) {
+          msg.className = "msg err";
+          msg.textContent = "请先填写工作区路径";
+        }
+        return;
+      }
+      if (manual) {
+        msg.textContent = "读取中…";
+        msg.className = "msg";
+      }
+      const seq = ++finalSkillLoadSeq;
+      const r = await api("/api/workspace-skill?workspace=" + encodeURIComponent(ws));
+      if (seq !== finalSkillLoadSeq) return;
+      if (r.ok === false && r.error) {
+        msg.className = "msg err";
+        msg.textContent = r.error;
+        return;
+      }
+      if (r.content) {
+        prev.textContent = r.content;
+        prev.classList.remove("empty");
+        const tag = r.skillFolder ? "（" + r.skillFolder + "）" : "";
+        msg.className = manual ? "msg ok" : "msg";
+        msg.textContent = "已载入最终 Skill" + tag;
+      } else {
+        prev.textContent = "（未加载到正文）";
+        prev.classList.add("empty");
+        msg.className = "msg err";
+        msg.textContent = r.hint || "未找到 SKILL.md";
+      }
+    }
+
+    document.getElementById("btnLoadFinalSkill").onclick = () => refreshFinalSkillPreview(true);
+
+    let wsBlurTimer = null;
+    document.getElementById("workspace").addEventListener("blur", () => {
+      clearTimeout(wsBlurTimer);
+      wsBlurTimer = setTimeout(() => refreshSkillPreview(false), 200);
+    });
+
+    async function loadRubricFromServer() {
+      const r = await api("/api/rubric");
+      const el = document.getElementById("rubricMsg");
+      if (r.structured) {
+        applyStructured(r.structured);
+        el.className = "msg";
+        el.textContent = "";
+        rubricSynced = true;
+        updateSampleButton();
+      } else {
+        el.className = "msg err";
+        el.textContent = "无法载入细则";
+      }
+    }
+    document.getElementById("btnLoadRubric").onclick = () => loadRubricFromServer();
+
+    document.getElementById("btnSaveRubric").onclick = async () => {
+      const r = await api("/api/rubric", {
+        method: "POST",
+        body: JSON.stringify({ structured: collectStructured() })
+      });
+      const el = document.getElementById("rubricMsg");
+      if (r.ok) {
+        el.className = "msg ok";
+        el.textContent = "已写回评分细则文件";
+        rubricSynced = true;
+        updateSampleButton();
+      } else {
+        el.className = "msg err";
+        el.textContent = "保存失败";
+      }
+    };
+
+    document.getElementById("btnSample").onclick = async () => {
+      const ws = document.getElementById("workspace").value.trim();
+      const n = parseInt(document.getElementById("sampleN").value, 10) || 5;
+      const seedRaw = document.getElementById("seed").value.trim();
+      const seed = seedRaw === "" ? null : parseInt(seedRaw, 10);
+      const el = document.getElementById("sampleMsg");
+      el.textContent = "采样中（大文件可能需数十秒）…";
+      const r = await api("/api/sample", {
+        method: "POST",
+        body: JSON.stringify({ workspace: ws, n: n, seed: seed })
+      });
+      if (r.ok) {
+        el.className = "msg ok";
+        el.textContent = "采样完成，病例列表已写入当前工作区。" + (r.log ? "\n" + r.log : "");
+        document.getElementById("btnPreparePhase2").disabled = false;
+        refreshPhase2Status();
+        await updateFlowAvailability();
+      } else {
+        el.className = "msg err";
+        el.textContent = r.error || JSON.stringify(r);
+      }
+    };
+
+    async function refreshPhase2Status() {
+      const ws = document.getElementById("workspace").value.trim();
+      const line = document.getElementById("phase2StatusLine");
+      const prepBtn = document.getElementById("btnPreparePhase2");
+      const startBtn = document.getElementById("btnPhase2Start");
+      if (!ws) {
+        line.textContent = "";
+        return;
+      }
+      const r = await api("/api/phase2-status?workspace=" + encodeURIComponent(ws));
+      prepBtn.disabled = !r.has_eval_cases;
+      if (r.prepared) {
+        startBtn.disabled = false;
+        const st = r.started ? "已开始" : "未标记开始";
+        line.textContent = "第二轮：" + st + "；已准备 " + (r.eval_count || 0) + " 条病例。" + (r.prompt_file ? " 说明文件已写入工作区。" : "");
+      } else {
+        line.textContent = r.has_eval_cases ? "可进行「准备第二轮评测目录」。" : "请先完成采样。";
+        if (!r.prepared) startBtn.disabled = true;
+      }
+      if (r.started) startBtn.disabled = true;
+    }
+
+    document.getElementById("btnPreparePhase2").onclick = async () => {
+      const ws = document.getElementById("workspace").value.trim();
+      const el = document.getElementById("phase2Msg");
+      el.textContent = "准备中…";
+      el.className = "msg";
+      const r = await api("/api/phase2-prepare", {
+        method: "POST",
+        body: JSON.stringify({ workspace: ws })
+      });
+      if (r.ok) {
+        el.className = "msg ok";
+        el.textContent = "已生成 eval 目录与 PHASE2_NEXT_STEPS.md（共 " + (r.eval_count || 0) + " 条）。请在 OpenClaw / Claude Code / Cursor 等环境中按该文件启动 Simulator/Grader。";
+        document.getElementById("btnPhase2Start").disabled = false;
+        refreshPhase2Status();
+        await updateFlowAvailability();
+      } else {
+        el.className = "msg err";
+        el.textContent = r.error || JSON.stringify(r);
+      }
+    };
+
+    document.getElementById("btnPhase2Start").onclick = async () => {
+      const ws = document.getElementById("workspace").value.trim();
+      const el = document.getElementById("phase2Msg");
+      const r = await api("/api/phase2-start", {
+        method: "POST",
+        body: JSON.stringify({ workspace: ws })
+      });
+      if (r.ok) {
+        el.className = "msg ok";
+        el.textContent = "已记录：第二轮评测已开始。";
+        refreshPhase2Status();
+      } else {
+        el.className = "msg err";
+        el.textContent = r.error || "失败";
+      }
+    };
+
+    document.getElementById("btnFeedback").onclick = async () => {
+      const ws = document.getElementById("workspace").value.trim();
+      const r = await api("/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({ workspace: ws, text: document.getElementById("feedback").value })
+      });
+      const el = document.getElementById("fbMsg");
+      if (r.ok) { el.className = "msg ok"; el.textContent = "已保存"; }
+      else { el.className = "msg err"; el.textContent = "保存失败"; }
+    };
+
+    function normalizeWorkspacePath(ws) {
+      if (typeof ws !== "string") return "";
+      const t = ws.trim();
+      // 兼容旧逻辑：如果 workspace 以 `/iteration-N` 结尾，则折叠到 `/eval_result` 根目录。
+      return t.replace(/\/iteration-\d+$/, "");
+    }
+
+    async function ensureWorkspaceDefault() {
+      const el = document.getElementById("workspace");
+      if (el.value.trim()) return;
+      const d = await api("/api/defaults");
+      if (d.workspace) {
+        const nw = normalizeWorkspacePath(d.workspace) || d.workspace;
+        el.value = nw;
+        try { localStorage.setItem(STORAGE_WS, nw); } catch (e) {}
+      }
+    }
+
+    /* ============================================================
+       PREMIUM SVG FLOWCHART RENDERER  v4
+       Key design decisions:
+       - Canvas 260×730, spine CX=108
+       - OPT nodes inside their swim lane, on the RIGHT column (OX=210)
+       - Arrows: orthogonal/rectilinear with rounded corners (rx path trick)
+         straight vertical for main spine, right-angle jogs for branches
+         No bezier → clean, predictable, Whimsical-style
+       ============================================================ */
+    (function buildFlowSvg() {
+      const NS  = "http://www.w3.org/2000/svg";
+      const svg = document.getElementById("flowSvgCanvas");
+      if (!svg) return;
+
+      const VW = 260, VH = 760;
+      svg.setAttribute("viewBox", `0 0 ${VW} ${VH}`);
+
+      /* ── palette ── */
+      const PAL = {
+        blue:   { a:"#eaf2fb", b:"#d4e5f7", stroke:"#3a6f97", text:"#224661" },
+        teal:   { a:"#e7f1f6", b:"#d2e5ef", stroke:"#4e7892", text:"#2d4f66" },
+        purple: { a:"#eceffd", b:"#dbe2fb", stroke:"#5a6fa1", text:"#34456f" },
+        amber:  { a:"#f3f6fb", b:"#e2eaf6", stroke:"#5f7391", text:"#3a4a63" },
+        coral:  { a:"#edf2f8", b:"#dde7f2", stroke:"#61758f", text:"#394d66" },
+        green:  { a:"#eaf2fb", b:"#d3e3f6", stroke:"#3f6e98", text:"#254866" },
+      };
+
+      /* ── Y positions (vertical spine) ──
+         Lane 1: s2=108, s3=170, d1=230, opt=230  (opt right-side same row as d1)
+         Lane 2: s4=360, s5=422, d2=482, opt2=482
+         Swim lane 1 top = s2-24 = 84,  bottom = d1+34 = 264
+         Swim lane 2 top = s4-24 = 336, bottom = d2+34 = 516
+         OPT nodes are inside the swim lane at the same Y as their diamond
+      */
+      const CX = 100;   // spine center-x
+      const OX = 205;   // right-column OPT node center-x (inside lane)
+      // Swim lane x extent: 6 → 254 (width 248)
+      // OPT node width=78, so left edge=OX-39=166, right edge=OX+39=244  ✓ inside lane
+
+      const Y = {
+        s1:    38,
+        s2:   108,
+        s3:   170,
+        d1:   232,
+        opt:  232,   // same row as d1, right column — inside lane 1
+        s4:   358,
+        s5:   420,
+        d2:   482,
+        opt2: 482,   // same row as d2, right column — inside lane 2
+        done: 580,
+      };
+
+      /* ── SVG defs ── */
+      const defs = el("defs", {}, svg);
+
+      // Gradients
+      function grad(id, c1, c2) {
+        const g = el("linearGradient", { id, x1:"0", y1:"0", x2:"0", y2:"1" }, defs);
+        el("stop", { offset:"0%",   "stop-color":c1 }, g);
+        el("stop", { offset:"100%", "stop-color":c2 }, g);
+      }
+      for (const [k,p] of Object.entries(PAL)) {
+        grad(`g_${k}`,    p.a, p.b);
+        grad(`g_${k}_hi`, p.b, p.a);
+      }
+      grad("g_done", "#dbeafe", "#bfdbfe");
+
+      // Filters
+      function mkFilter(id, dy, blur, alpha, glowColor) {
+        const f = el("filter", { id, x:"-30%", y:"-30%", width:"160%", height:"180%" }, defs);
+        if (glowColor) {
+          el("feDropShadow", { dx:"0", dy:"0", stdDeviation:blur, "flood-color":glowColor }, f);
+        } else {
+          el("feDropShadow", { dx:"0", dy, stdDeviation:blur,
+            "flood-color":`rgba(0,0,0,${alpha})` }, f);
+        }
+      }
+      mkFilter("fBase",  2, 2.5, 0.10, null);
+      mkFilter("fGlow",  0, 5,   0,    "rgba(58,111,151,0.28)");
+      mkFilter("fGlowA", 0, 5,   0,    "rgba(95,115,145,0.24)");
+      mkFilter("fGlowC", 0, 4,   0,    "rgba(97,117,143,0.22)");
+
+      // Arrowheads — solid, compact, no gaps
+      // Using a simple filled triangle, refX tuned so tip exactly touches the line endpoint
+      function mkArrow(id, color) {
+        const m = el("marker", {
+          id, markerWidth:"6", markerHeight:"6",
+          refX:"5", refY:"3", orient:"auto",
+          markerUnits:"strokeWidth",
+        }, defs);
+        el("path", { d:"M 0 0.5 L 5 3 L 0 5.5 Z", fill:color, stroke:"none" }, m);
+      }
+      const ARROWS = {
+        grey:"#9fb0bf", blue:"#3a6f97", teal:"#4e7892",
+        purple:"#5a6fa1", amber:"#5f7391", coral:"#61758f", green:"#3f6e98"
+      };
+      for (const [name, color] of Object.entries(ARROWS)) mkArrow(`a_${name}`, color);
+
+      /* ── helpers ── */
+      function el(tag, attrs, parent) {
+        const e = document.createElementNS(NS, tag);
+        for (const [k,v] of Object.entries(attrs)) e.setAttribute(k,v);
+        if (parent) parent.appendChild(e);
+        return e;
+      }
+      function svgText(text, cx, cy, size, weight, fill, parent) {
+        const t = el("text", {
+          x:cx, y:cy, "text-anchor":"middle", "dominant-baseline":"central",
+          "font-size":size, "font-weight":weight, fill,
+          "font-family":"Plus Jakarta Sans,system-ui,sans-serif",
+        }, parent);
+        t.textContent = text;
+        return t;
+      }
+
+      // ── Orthogonal (right-angle) arrow with rounded corner ──
+      // Draws: vertical down from (x1,y1), horizontal jog, vertical down to (x2,y2)
+      // All corners rounded with a small arc (r=4)
+      // For simple straight vertical (x1===x2): just a straight line
+      function orthoArrow(parent, x1,y1, x2,y2, color, arrowId, opts={}) {
+        const { dash=null, sw=1.75, midY=null } = opts;
+        let d;
+        const r = 5; // corner radius
+        if (Math.abs(x1 - x2) < 1) {
+          // Straight vertical
+          d = `M ${x1} ${y1} L ${x2} ${y2-r*0.5}`;
+        } else {
+          // Right-angle with one horizontal jog at midY
+          const my = midY ?? (y1 + y2) / 2;
+          if (x2 > x1) {
+            // going right
+            d = `M ${x1} ${y1}` +
+                ` L ${x1} ${my-r}` +
+                ` Q ${x1} ${my} ${x1+r} ${my}` +
+                ` L ${x2-r} ${my}` +
+                ` Q ${x2} ${my} ${x2} ${my+r}` +
+                ` L ${x2} ${y2}`;
+          } else {
+            // going left
+            d = `M ${x1} ${y1}` +
+                ` L ${x1} ${my-r}` +
+                ` Q ${x1} ${my} ${x1-r} ${my}` +
+                ` L ${x2+r} ${my}` +
+                ` Q ${x2} ${my} ${x2} ${my+r}` +
+                ` L ${x2} ${y2}`;
+          }
+        }
+        const attrs = {
+          d, fill:"none", stroke:color, "stroke-width":sw,
+          "stroke-linecap":"round", "stroke-linejoin":"round",
+          "marker-end":`url(#${arrowId})`,
+        };
+        if (dash) attrs["stroke-dasharray"] = dash;
+        el("path", attrs, parent);
+      }
+
+      // Edge label with pill background
+      function edgeLabel(text, cx, cy, textColor, parent, size = 12.5) {
+        const tw = text.length * (size * 0.72) + 10;
+        const h = Math.max(16, size + 8);
+        el("rect", { x:cx-tw/2, y:cy-h/2, width:tw, height:h, rx:5,
+          fill:"rgba(255,255,255,0.88)", stroke:"rgba(0,0,0,0.07)", "stroke-width":"0.5" }, parent);
+        svgText(text, cx, cy+0.5, size, "700", textColor, parent);
+      }
+
+      /* ── shape helpers ── */
+      function rectNode(parent, cx,cy, w,h, rx, pal, state, title, badge) {
+        const p = PAL[pal];
+        let fill, stroke, sw, filt, tc;
+        if (state==="active") {
+          fill=`url(#g_${pal}_hi)`; stroke=p.stroke; sw=2.2; filt="fGlow"; tc=p.text;
+        } else if (state==="done") {
+          fill="url(#g_done)"; stroke="#2563eb"; sw=1.6; filt="fBase"; tc="#1e3a8a";
+        } else if (state==="dim") {
+          fill=`url(#g_${pal})`; stroke=p.stroke; sw=1.2; filt="fBase"; tc=p.text;
+        } else {
+          fill=`url(#g_${pal})`; stroke=p.stroke; sw=1.5; filt="fBase"; tc=p.text;
+        }
+        const opacity = state==="dim" ? 0.35 : 1;
+        const g = el("g", { opacity }, parent);
+
+        el("rect", { x:cx-w/2, y:cy-h/2, width:w, height:h, rx, ry:rx,
+          fill, stroke, "stroke-width":sw, filter:`url(#${filt})` }, g);
+
+        if (state==="active") {
+          el("rect", { x:cx-w/2, y:cy-h/2+rx, width:3.5, height:h-rx*2,
+            rx:1.5, fill:stroke, opacity:"0.85" }, g);
+        }
+        if (state==="done") {
+          el("circle", { cx:cx+w/2-10, cy:cy-h/2+10, r:7,
+            fill:"rgba(37,99,235,0.14)", stroke:"#2563eb", "stroke-width":"1.2" }, g);
+          svgText("✓", cx+w/2-10, cy-h/2+10.5, 11.5, "900", "#1e3a8a", g);
+        }
+        if (badge && state!=="done") {
+          svgText(badge, cx+w/2-8, cy-h/2+8.5, 11, "800",
+            state==="active" ? stroke : "rgba(90,110,135,0.52)", g);
+        }
+        svgText(title, cx+(state==="active"?2:0), cy+0.5, 13.5, "700", tc, g);
+      }
+
+      function diamondNode(parent, cx,cy, hw,hh, pal, state, label) {
+        const p = PAL[pal];
+        const filt = state==="done" ? "fBase" : "fGlowA";
+        const stroke = state==="done" ? "#2563eb" : p.stroke;
+        const fill   = state==="done" ? "url(#g_done)" : `url(#g_${pal})`;
+        const tc     = state==="done" ? "#1e3a8a" : p.text;
+        const opacity = state==="dim" ? 0.35 : 1;
+        const g = el("g", { opacity }, parent);
+        el("path", {
+          d:`M ${cx} ${cy-hh} L ${cx+hw} ${cy} L ${cx} ${cy+hh} L ${cx-hw} ${cy} Z`,
+          fill, stroke, "stroke-width": state==="dim"?"1.2":"1.7",
+          filter:`url(#${filt})`
+        }, g);
+        svgText(label, cx, cy+0.5, 12.5, "700", tc, g);
+      }
+
+      function pillNode(parent, cx,cy, w,h, pal, state, title) {
+        rectNode(parent, cx,cy, w,h, h/2, pal, state, title, null);
+      }
+
+      /* ── RENDER ── */
+      window.renderFlowSvg = function(activeStep, achievedStep, enabledSteps) {
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+        svg.appendChild(defs);
+        const g = el("g", {}, svg);
+        const a = achievedStep;
+
+        const ss = n => {
+          if (n === activeStep)           return "active";
+          if (enabledSteps && !enabledSteps.has(n)) return "dim";
+          if (n < a)                      return "done";
+          return "default";
+        };
+
+        const eGrey="#9fb0bf", eBlue="#3a6f97", eTeal="#4e7892",
+              ePurp="#5a6fa1", eAmber="#5f7391", eCoral="#61758f", eGreen="#3f6e98";
+
+        // ── SWIM LANES (drawn first, behind everything) ──
+        // Lane 1: contains S2, S3, D1, OPT
+        const L1_TOP = Y.s2 - 36, L1_BOT = Y.d1 + 36;
+        el("rect", {
+          x:6, y:L1_TOP, width:VW-12, height:L1_BOT-L1_TOP,
+          rx:13, fill:"rgba(78,120,146,0.055)",
+          stroke:"rgba(78,120,146,0.24)", "stroke-width":"1", "stroke-dasharray":"6 4",
+        }, g);
+        svgText("粗粒度评测", 18, L1_TOP+9, 14, "800", "rgba(61,97,124,0.82)", g);
+        // Align text left
+        g.lastChild.setAttribute("text-anchor","start");
+
+        // Lane 2: contains S4, S5, D2, OPT2
+        const L2_TOP = Y.s4 - 36, L2_BOT = Y.d2 + 36;
+        el("rect", {
+          x:6, y:L2_TOP, width:VW-12, height:L2_BOT-L2_TOP,
+          rx:13, fill:"rgba(90,111,161,0.045)",
+          stroke:"rgba(90,111,161,0.22)", "stroke-width":"1", "stroke-dasharray":"6 4",
+        }, g);
+        svgText("细粒度评测", 18, L2_TOP+9, 14, "800", "rgba(73,91,137,0.80)", g);
+        g.lastChild.setAttribute("text-anchor","start");
+
+        // ── EDGES ──
+
+        // S1 → S2  (straight down)
+        orthoArrow(g, CX, Y.s1+17, CX, Y.s2-16,
+          a>=2?eBlue:eGrey, a>=2?"a_blue":"a_grey");
+
+        // S2 → S3
+        orthoArrow(g, CX, Y.s2+16, CX, Y.s3-16,
+          a>=3?eTeal:eGrey, a>=3?"a_teal":"a_grey");
+
+        // S3 → D1 top
+        orthoArrow(g, CX, Y.s3+16, CX, Y.d1-28,
+          a>=3?eAmber:eGrey, a>=3?"a_amber":"a_grey");
+
+        // D1 right → OPT left  (horizontal, same Y)
+        // Diamond right point at CX+52; OPT left edge at OX-39=166
+        orthoArrow(g, CX+52, Y.d1, OX-39, Y.opt,
+          eCoral, "a_coral",
+          { dash:"5.5 3.5", sw:1.6, midY:Y.d1 });
+        edgeLabel("未达标", CX+60, Y.d1-20, eCoral, g);
+
+        // OPT top → up, jog left, down to S2 right
+        // Route: from top of OPT go up, then jog left to right edge of S2
+        {
+          const x1=OX, y1=Y.opt-15;           // top of OPT
+          const x2=CX+70, y2=Y.s2;            // right side of S2
+          const jogY = L1_TOP + 6;            // just inside lane top
+          const r=5;
+          const d = `M ${x1} ${y1}` +
+            ` L ${x1} ${jogY+r}` +
+            ` Q ${x1} ${jogY} ${x1-r} ${jogY}` +
+            ` L ${x2+r} ${jogY}` +
+            ` Q ${x2} ${jogY} ${x2} ${jogY+r}` +
+            ` L ${x2} ${y2}`;
+          el("path", { d, fill:"none", stroke:eCoral, "stroke-width":"1.6",
+            "stroke-linecap":"round", "stroke-linejoin":"round",
+            "stroke-dasharray":"5 3.5", "marker-end":"url(#a_coral)" }, g);
+        }
+
+        // D1 bottom → S4 top  (Yes / 达标)
+        orthoArrow(g, CX, Y.d1+28, CX, Y.s4-16,
+          a>=4?ePurp:eGrey, a>=4?"a_purple":"a_grey");
+        edgeLabel("达标", CX, Y.d1+50, a>=4?ePurp:eGrey, g);
+
+        // S4 → S5
+        orthoArrow(g, CX, Y.s4+16, CX, Y.s5-16,
+          a>=5?ePurp:eGrey, a>=5?"a_purple":"a_grey");
+
+        // S5 → D2 top
+        orthoArrow(g, CX, Y.s5+16, CX, Y.d2-28,
+          a>=5?eAmber:eGrey, a>=5?"a_amber":"a_grey");
+
+        // D2 right → OPT2 left  (horizontal, same Y)
+        orthoArrow(g, CX+52, Y.d2, OX-39, Y.opt2,
+          eCoral, "a_coral",
+          { dash:"5.5 3.5", sw:1.6, midY:Y.d2 });
+        edgeLabel("未达标", CX+60, Y.d2-20, eCoral, g);
+
+        // OPT2 top → up, jog left, down to S4 right
+        {
+          const x1=OX, y1=Y.opt2-15;
+          const x2=CX+70, y2=Y.s4;
+          const jogY = L2_TOP + 6;
+          const r=5;
+          const d = `M ${x1} ${y1}` +
+            ` L ${x1} ${jogY+r}` +
+            ` Q ${x1} ${jogY} ${x1-r} ${jogY}` +
+            ` L ${x2+r} ${jogY}` +
+            ` Q ${x2} ${jogY} ${x2} ${jogY+r}` +
+            ` L ${x2} ${y2}`;
+          el("path", { d, fill:"none", stroke:eCoral, "stroke-width":"1.6",
+            "stroke-linecap":"round", "stroke-linejoin":"round",
+            "stroke-dasharray":"5 3.5", "marker-end":"url(#a_coral)" }, g);
+        }
+
+        // D2 bottom → DONE  (Yes / 达标)
+        orthoArrow(g, CX, Y.d2+28, CX, Y.done-17,
+          a>=5?eGreen:eGrey, a>=5?"a_green":"a_grey");
+        edgeLabel("达标", CX, Y.d2+51, a>=5?eGreen:eGrey, g);
+
+        // ── NODES ──
+
+        // S1
+        rectNode(g, CX, Y.s1, 150, 32, 16, "blue", ss(1), "初始化导诊 Skill", "S1");
+        // S2
+        rectNode(g, CX, Y.s2, 142, 30, 7, "teal", ss(2), "粗粒度评测执行", "S2");
+        // S3
+        rectNode(g, CX, Y.s3, 142, 30, 7, "teal", ss(3), "粗粒度评测结果", "S3");
+        // D1
+        diamondNode(g, CX, Y.d1, 52, 27, "amber",
+          a>=4?"done": a>=3?"default":"dim", "第一轮达标?");
+        // OPT  (inside lane 1, right column)
+        pillNode(g, OX, Y.opt, 78, 28, "coral", "default", "Skill 优化");
+
+        // S4
+        rectNode(g, CX, Y.s4, 142, 30, 7, "purple", ss(4), "细粒度评测执行", "S4");
+        // S5
+        rectNode(g, CX, Y.s5, 142, 30, 7, "purple", ss(5), "细粒度评测结果", "S5");
+        // D2
+        diamondNode(g, CX, Y.d2, 52, 27, "amber",
+          a>=5?"done":"dim", "第二轮达标?");
+        // OPT2 (inside lane 2, right column)
+        pillNode(g, OX, Y.opt2, 78, 28, "coral", "default", "个性化优化");
+
+        // DONE
+        const doneState = activeStep === 6 ? "active" : (a >= 5 ? "done" : "dim");
+        pillNode(g, CX, Y.done, 110, 32, "green", doneState, "🎉 完成训练");
+
+        // ── HIT AREAS ──
+        const wrap = document.getElementById("flowCanvasWrap");
+        if (!wrap) return;
+        const svgEl = document.getElementById("flowSvgCanvas");
+        const sr = svgEl.getBoundingClientRect();
+        const wr = wrap.getBoundingClientRect();
+        const sx=sr.width/VW, sy=sr.height/VH;
+        const ox=sr.left-wr.left, oy=sr.top-wr.top;
+        [
+          {step:1,cx:CX,cy:Y.s1,w:150,h:32},
+          {step:2,cx:CX,cy:Y.s2,w:142,h:30},
+          {step:3,cx:CX,cy:Y.s3,w:142,h:30},
+          {step:4,cx:CX,cy:Y.s4,w:142,h:30},
+          {step:5,cx:CX,cy:Y.s5,w:142,h:30},
+          {step:6,cx:CX,cy:Y.done,w:110,h:32},
+        ].forEach(({step,cx,cy,w,h}) => {
+          const btn = document.getElementById("fh"+step);
+          if (!btn) return;
+          btn.style.cssText = `left:${(cx-w/2)*sx+ox}px;top:${(cy-h/2)*sy+oy}px;width:${w*sx}px;height:${h*sy}px;`;
+        });
+      };
+
+      window.renderFlowSvg(1, 1, new Set([1]));
+    })();
+
+    // Re-position hit areas on resize
+    window.addEventListener("resize", () => {
+      if (typeof renderFlowSvg === "function") {
+        renderFlowSvg(
+          typeof currentStep !== "undefined" ? currentStep : 1,
+          typeof flowAchievedStep !== "undefined" ? flowAchievedStep : 1,
+          typeof flowEnabledSteps !== "undefined" ? flowEnabledSteps : new Set([1])
+        );
+      }
+    });
+
+    (async function boot() {
+      try {
+        const ss = localStorage.getItem(STORAGE_CHAT_SESSION);
+        if (ss && ss.trim()) chatSessionKey = ss.trim();
+      } catch (e) {}
+      await initRuntimeUI();
+      try {
+        const savedWs = localStorage.getItem(STORAGE_WS);
+        if (savedWs) document.getElementById("workspace").value = normalizeWorkspacePath(savedWs);
+      } catch (e) {}
+      await ensureWorkspaceDefault();
+      await loadDepartments();
+      await loadRubricFromServer();
+      updateSampleButton();
+      try {
+        const desired = parseInt(localStorage.getItem(STORAGE_STEP), 10);
+        const safeDesired = desired >= 1 && desired <= 6 ? desired : 1;
+        const flow = await updateFlowAvailability();
+        showStep(pickBestStep(safeDesired, flow.enabledSteps));
+      } catch (e) {
+        setFlowAvailability(new Set([1]), "加载失败：请刷新后重试");
+        showStep(1);
+      }
+      updateSampleButton();
+      refreshPhase2Status();
+      if (document.getElementById("workspace").value.trim() && currentStep !== 1) refreshSkillPreview(false);
+      reviewPollTimer = setInterval(function () {
+        if (document.visibilityState !== "visible") return;
+        if (currentStep === 3 || currentStep === 5) {
+          refreshReviewEmbeds(true);
+          return;
+        }
+        if (currentStep === 4 && !flowAvailabilityPollBusy) {
+          flowAvailabilityPollBusy = true;
+          updateFlowAvailability()
+            .catch(() => {})
+            .finally(() => { flowAvailabilityPollBusy = false; });
+        }
+      }, 12000);
+    })();
+  </script>
+</body>
+</html>

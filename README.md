@@ -71,30 +71,30 @@ hf download  Sirrrrrrrrrry/patient-pool-TSC --repo-type dataset --local-dir <pro
   <tr>
     <td align="center">
       <img src="./image/cursor-view.png" width="250"><br>
-      <sub>(e) 使用 Cursor 的交互演示</sub>
+      <sub>(a) 使用 Cursor 的交互演示</sub>
     </td>
     <td align="center">
       <img src="./image/openclaw-view.png" width="250"><br>
-      <sub>(f) 使用 OpenClaw 的交互演示</sub>
+      <sub>(b) 使用 OpenClaw 的交互演示</sub>
     </td>
     <td align="center">
       <img src="./image/stage1-eval-1.png" width="250"><br>
-      <sub>(a) 第一阶段粗粒度评测结果</sub>
+      <sub>(c) 第一阶段粗粒度评测结果</sub>
     </td>
   </tr>
 
   <tr>
     <td align="center">
       <img src="./image/stage1-eval-2.png" width="250"><br>
-      <sub>(b) 一轮迭代优化后第一阶段的评测结果</sub>
+      <sub>(d) 一轮迭代优化后第一阶段的评测结果</sub>
     </td>
     <td align="center">
       <img src="./image/stage2-eval.png" width="250"><br>
-      <sub>(c) 第二阶段细粒度评测结果</sub>
+      <sub>(e) 第二阶段细粒度评测结果</sub>
     </td>
     <td align="center">
       <img src="./image/final-skill.png" width="250"><br>
-      <sub>(d) 最终获得的skill</sub>
+      <sub>(f) 最终获得的skill</sub>
     </td>
   </tr>
 </table>

@@ -70,30 +70,30 @@ In chat with your agent, use prompts like these (natural language is fine; the s
   <tr>
     <td align="center">
       <img src="./image/cursor-view.png" width="250"><br>
-      <sub>(e) Cursor interaction demo</sub>
+      <sub>(a) Cursor interaction demo</sub>
     </td>
     <td align="center">
       <img src="./image/openclaw-view.png" width="250"><br>
-      <sub>(f) OpenClaw interaction demo</sub>
+      <sub>(b) OpenClaw interaction demo</sub>
     </td>
     <td align="center">
       <img src="./image/stage1-eval-1.png" width="250"><br>
-      <sub>(a) Stage 1 coarse-grained evaluation</sub>
+      <sub>(c) Stage 1 coarse-grained evaluation</sub>
     </td>
   </tr>
 
   <tr>
     <td align="center">
       <img src="./image/stage1-eval-2.png" width="250"><br>
-      <sub>(b) Stage 1 after one optimization iteration</sub>
+      <sub>(d) Stage 1 after one optimization iteration</sub>
     </td>
     <td align="center">
       <img src="./image/stage2-eval.png" width="250"><br>
-      <sub>(c) Stage 2 fine-grained evaluation</sub>
+      <sub>(e) Stage 2 fine-grained evaluation</sub>
     </td>
     <td align="center">
       <img src="./image/final-skill.png" width="250"><br>
-      <sub>(d) Final triage skill</sub>
+      <sub>(f) Final triage skill</sub>
     </td>
   </tr>
 </table>

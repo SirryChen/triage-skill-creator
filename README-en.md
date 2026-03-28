@@ -66,43 +66,37 @@ In chat with your agent, use prompts like these (natural language is fine; the s
 5. Improve the skill from the eval results and run the second round again.
 ```
 
-<div style="
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-">
+<table>
+  <tr>
+    <td align="center">
+      <img src="./image/cursor-view.png" width="250"><br>
+      <sub>(e) Cursor interaction demo</sub>
+    </td>
+    <td align="center">
+      <img src="./image/openclaw-view.png" width="250"><br>
+      <sub>(f) OpenClaw interaction demo</sub>
+    </td>
+    <td align="center">
+      <img src="./image/stage1-eval-1.png" width="250"><br>
+      <sub>(a) Stage 1 coarse-grained evaluation</sub>
+    </td>
+  </tr>
 
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/cursor-view.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(e) Cursor interaction demo</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/openclaw-view.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(f) OpenClaw interaction demo</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/stage1-eval-1.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(a) Stage 1 coarse-grained eval</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/stage1-eval-2.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(b) Stage 1 after one iteration</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/stage2-eval.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(c) Stage 2 fine-grained eval</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/final-skill.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(d) Final triage skill artifact</p>
-  </div>
-
-</div>
+  <tr>
+    <td align="center">
+      <img src="./image/stage1-eval-2.png" width="250"><br>
+      <sub>(b) Stage 1 after one optimization iteration</sub>
+    </td>
+    <td align="center">
+      <img src="./image/stage2-eval.png" width="250"><br>
+      <sub>(c) Stage 2 fine-grained evaluation</sub>
+    </td>
+    <td align="center">
+      <img src="./image/final-skill.png" width="250"><br>
+      <sub>(d) Final triage skill</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 

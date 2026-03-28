@@ -1,9 +1,0 @@
-{
-  "prepared": true,
-  "prepared_at": "2026-03-27T03:03:24+08:00",
-  "eval_count": 30,
-  "skill_path": "/Users/sirry/.openclaw/workspace/skills/triage-skill/SKILL.md",
-  "readme_file": "/Users/sirry/.openclaw/workspace/skills/triage-skill-creator/eval_result/iteration-1/PHASE2_NEXT_STEPS.md",
-  "prompt_file": "/Users/sirry/.openclaw/workspace/skills/triage-skill-creator/eval_result/iteration-1/PHASE2_NEXT_STEPS.md",
-  "started": false
-}

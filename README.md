@@ -67,46 +67,37 @@ hf download  Sirrrrrrrrrry/patient-pool-TSC --repo-type dataset --local-dir <pro
 5. 根据评测结果对 skill 进行优化，并再次进行第二轮评测
 ```
 
+<table>
+  <tr>
+    <td align="center">
+      <img src="./image/cursor-view.png" width="250"><br>
+      <sub>(e) 使用 Cursor 的交互演示</sub>
+    </td>
+    <td align="center">
+      <img src="./image/openclaw-view.png" width="250"><br>
+      <sub>(f) 使用 OpenClaw 的交互演示</sub>
+    </td>
+    <td align="center">
+      <img src="./image/stage1-eval-1.png" width="250"><br>
+      <sub>(a) 第一阶段粗粒度评测结果</sub>
+    </td>
+  </tr>
 
-<div style="
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-">
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/cursor-view.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(e) 使用 Cursor 的交互演示</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/openclaw-view.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(f) 使用 OpenClaw 的交互演示</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/stage1-eval-1.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(a) 第一阶段粗粒度评测结果</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/stage1-eval-2.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(b) 一轮迭代优化后第一阶段的评测结果</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/stage2-eval.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(c) 第二阶段细粒度评测结果</p>
-  </div>
-
-  <div style="background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); transition: transform 0.2s ease;">
-    <img src="./image/final-skill.png" style="width: 100%; border-radius: 6px;">
-    <p style="font-size: 13px; color: #6b7280; margin-top: 8px;">(d) 最终获得的skill</p>
-  </div>
-
-</div>
-
-
+  <tr>
+    <td align="center">
+      <img src="./image/stage1-eval-2.png" width="250"><br>
+      <sub>(b) 一轮迭代优化后第一阶段的评测结果</sub>
+    </td>
+    <td align="center">
+      <img src="./image/stage2-eval.png" width="250"><br>
+      <sub>(c) 第二阶段细粒度评测结果</sub>
+    </td>
+    <td align="center">
+      <img src="./image/final-skill.png" width="250"><br>
+      <sub>(d) 最终获得的skill</sub>
+    </td>
+  </tr>
+</table>
 
 
 ---
